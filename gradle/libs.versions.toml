@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.2.10"
-ktlint = "12.1.2"
+ktlint = "14.2.0"
 junit = "5.11.4"
 
 [plugins]
