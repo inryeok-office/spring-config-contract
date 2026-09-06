@@ -47,13 +47,13 @@ jobs:
             const body = pr.body ?? "";
             for (const section of ["Summary", "Related Issue", "Testing", "Breaking Changes"]) {
               if (!new RegExp(`^##\\s+${section}\\s*$`, "im").test(body)) {
-                errors.push(`PR #${pr.number} is missing the \\`## ${section}\\` section. Use the PR template.`);
+                errors.push(`PR #${pr.number} is missing the "## ${section}" section. Use the PR template.`);
               }
             }
 
             const issueReference = /(?:closes?|fixes?|resolves?|refs?|related to)\s*:?\s*(?:https:\/\/github\.com\/[^\s]+\/issues\/\d+|#\d+)/i.test(body);
             if (!smallChange && !issueReference) {
-              errors.push(`PR #${pr.number} is missing a related Issue. Add \\`Closes #<issue>\\` or explain the small-change exemption in \\`## Related Issue\\`.`);
+              errors.push(`PR #${pr.number} is missing a related Issue. Add "Closes #<issue>" or explain the small-change exemption in "## Related Issue".`);
             }
 
             if (errors.length > 0) {
