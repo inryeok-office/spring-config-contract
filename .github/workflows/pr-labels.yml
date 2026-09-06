@@ -1,0 +1,55 @@
+name: Pull Request labels
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  labels:
+    name: Apply repository labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply labels from author and changed paths
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = new Set();
+            const author = pr.user?.login ?? "";
+            if (pr.user?.type === "Bot" || author.endsWith("[bot]")) {
+              labels.add("automated");
+              labels.add("dependencies");
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            for (const file of files) {
+              const path = file.filename;
+              if (path.startsWith("config-contract-core/")) labels.add("core");
+              if (path.startsWith("config-contract-spring/")) labels.add("spring");
+              if (path.startsWith("config-contract-deployment/")) labels.add("deployment");
+              if (path.startsWith("config-contract-gradle-plugin/")) labels.add("gradle");
+              if (path.startsWith("config-contract-test/")) labels.add("testing");
+              if (path.startsWith(".github/")) labels.add("ci");
+              if (path.startsWith("docs/") || ["README.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md", "CHANGELOG.md"].includes(path)) labels.add("documentation");
+            }
+
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: [...labels],
+              });
+              core.info(`Applied labels: ${[...labels].join(", ")}`);
+            } else {
+              core.info("No unambiguous automatic labels apply; maintainer triage remains required.");
+            }

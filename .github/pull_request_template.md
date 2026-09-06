@@ -4,7 +4,7 @@
 
 ## Related Issue
 
-<!-- Link an issue, or write "None". -->
+<!-- Link an issue with "Closes #123", or write "None" for a documented small-change exemption. -->
 
 ## Changes
 
@@ -13,6 +13,10 @@
 ## Behavior and Compatibility
 
 <!-- Describe behavior, compatibility, or public API impact. Write "None" when applicable. -->
+
+## Public API Impact
+
+<!-- Describe added/changed public API, or write "None". -->
 
 ## Testing
 

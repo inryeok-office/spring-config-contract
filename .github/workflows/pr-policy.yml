@@ -1,0 +1,63 @@
+name: Pull Request policy
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  policy:
+    name: Validate PR policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate title and description
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user?.login ?? "";
+            const isAutomation = pr.user?.type === "Bot" || author.endsWith("[bot]");
+            if (isAutomation) {
+              core.info("Automated PR: human body and Issue-reference requirements are exempt.");
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const paths = files.map((file) => file.filename);
+            const smallChange = paths.length > 0 && paths.every((path) =>
+              path.startsWith("docs/") ||
+              ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md"].includes(path) ||
+              path.startsWith(".github/")
+            );
+
+            const errors = [];
+            const titlePattern = /^(feat|fix|docs|refactor|test|chore|perf|build|ci|revert)(\([^\n()]+\))?!?: .+/;
+            if (!titlePattern.test(pr.title)) {
+              errors.push(`PR #${pr.number} has an invalid title. Use Conventional Commits, for example \`chore: improve CI\`.`);
+            }
+
+            const body = pr.body ?? "";
+            for (const section of ["Summary", "Related Issue", "Testing", "Breaking Changes"]) {
+              if (!new RegExp(`^##\\s+${section}\\s*$`, "im").test(body)) {
+                errors.push(`PR #${pr.number} is missing the "## ${section}" section. Use the PR template.`);
+              }
+            }
+
+            const issueReference = /(?:closes?|fixes?|resolves?|refs?|related to)\s*:?\s*(?:https:\/\/github\.com\/[^\s]+\/issues\/\d+|#\d+)/i.test(body);
+            if (!smallChange && !issueReference) {
+              errors.push(`PR #${pr.number} is missing a related Issue. Add "Closes #<issue>" or explain the small-change exemption in "## Related Issue".`);
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(errors.join("\n"));
+            } else {
+              core.info("Pull Request metadata satisfies the repository policy.");
+            }

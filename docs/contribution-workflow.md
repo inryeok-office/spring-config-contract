@@ -13,3 +13,5 @@ Issue → branch → implementation and tests → PR → maintainer review → C
 Issue/design discussion → ADR when the decision is durable → implementation → enhanced review and compatibility assessment → CI. Do not introduce a public type or dependency edge casually.
 
 All commits use Conventional Commits. PR and Issue communication is English. No contributor may push directly to `main` or merge their own PR.
+
+See [the governance policy](governance.md) for metadata requirements, Dependabot and external-contributor exceptions, automatic labels, and the PR policy check.

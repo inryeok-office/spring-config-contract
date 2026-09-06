@@ -26,6 +26,7 @@ Read the relevant module `AGENTS.md` before changing that module.
 - Dependencies: [docs/dependency-policy.md](docs/dependency-policy.md)
 - AI-assisted development: [docs/ai-development.md](docs/ai-development.md)
 - Contribution workflow: [docs/contribution-workflow.md](docs/contribution-workflow.md)
+- Issue and PR metadata policy: [docs/governance.md](docs/governance.md)
 - Architecture decisions: [docs/decisions/README.md](docs/decisions/README.md)
 
 These documents are canonical. Link to them instead of duplicating detailed policy.
@@ -40,7 +41,9 @@ These documents are canonical. Link to them instead of duplicating detailed poli
 
 ## Work protocol
 
-Before implementation, inspect the relevant instructions, implementation, tests, architecture/policy documentation, Issue scope, public API impact, and compatibility concerns. During implementation, keep the patch scoped, preserve boundaries and compatibility, add behavior tests, and update user-facing documentation.
+Before implementation, inspect the relevant instructions, implementation, tests, architecture/policy documentation, Issue scope, public API impact, and compatibility concerns. For Issue-backed work, confirm the Issue owner, applicable labels, and correctly named branch. During implementation, keep the patch scoped, preserve boundaries and compatibility, add behavior tests, and update user-facing documentation.
+
+Before opening a PR, reference the Issue when required, classify the change and affected area, and record accurate validation results. After opening it, verify automatic labels and required checks, request an appropriate maintainer review, and resolve metadata or policy failures. Never merge around a failed required check. See [the governance policy](docs/governance.md) for detailed maintainer, contributor, and automation rules.
 
 Before completion, inspect `git diff`, run targeted tests and repository checks, verify formatting, documentation consistency, and secret hygiene, and report any incomplete verification. Work through an Issue-backed branch and PR; never push directly to `main`.
 

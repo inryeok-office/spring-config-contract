@@ -2,7 +2,7 @@
 
 ## Toolchain
 
-Use the Gradle Wrapper, Kotlin JVM, JDK 21 toolchain, Gradle Kotlin DSL, JUnit 5, and ktlint. The root build files and version catalog are the source of truth for versions and repositories.
+Use the Gradle Wrapper, Kotlin JVM, JDK 21 toolchain, Gradle Kotlin DSL, JUnit Platform/Jupiter, and ktlint. The root build files and version catalog are the source of truth for versions and repositories.
 
 Run:
 
