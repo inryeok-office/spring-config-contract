@@ -28,3 +28,5 @@ docs: improve quick start
 ```
 
 Every new behavior must include tests. Keep pull requests focused, explain architectural effects, and document user-visible changes. CI must pass before maintainer review. Read [AGENTS.md](AGENTS.md) and the relevant module instructions before implementation.
+
+Issue and PR metadata, Dependabot exceptions, reviewer ownership, and the distinction between automated checks and maintainer judgment are documented in the [governance policy](docs/governance.md).
