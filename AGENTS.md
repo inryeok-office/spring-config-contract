@@ -1,41 +1,59 @@
-# AGENTS.md
+# Repository instructions
 
 ## Purpose
 
-Spring Config Contract is an early-stage developer tool for checking whether configuration required by a Spring Boot application matches configuration supplied by deployment environments.
+Spring Config Contract is an early-stage developer tool intended to verify whether configuration required by a Spring Boot application matches configuration supplied by deployment environments. Product functionality is not yet implemented; keep infrastructure work separate from future feature work.
 
-## Architecture and boundaries
+## Repository map
 
-- `config-contract-core` contains future domain models and comparison rules. It must remain independent of Spring, Gradle APIs, and deployment formats.
-- `config-contract-spring` contains Spring-specific extraction and may depend on core.
-- `config-contract-deployment` contains deployment parsers and may depend on core. Planned inputs include `.env` and Docker Compose.
-- `config-contract-gradle-plugin` is the integration layer and should compose the other modules; business rules do not belong here.
-- `config-contract-test` contains shared test support and fixtures.
-- `samples` contains future example Spring Boot projects.
+- `config-contract-core`: framework-independent domain models and comparison rules.
+- `config-contract-spring`: Spring-specific interpretation and extraction.
+- `config-contract-deployment`: deployment-format parsers and adapters.
+- `config-contract-gradle-plugin`: Gradle orchestration and integration.
+- `config-contract-test`: reusable test fixtures and utilities only.
+- `samples`: future example applications; not a production module.
+- `docs`: canonical engineering policies and architecture decisions.
 
-Never modify these boundaries silently. Architecture changes require documentation and review.
+Read the relevant module `AGENTS.md` before changing that module.
 
-## Repository policy
+## Sources of truth
 
-- Repository-facing code, issues, pull requests, commits, and documentation must be in English.
-- Use Kotlin, JDK 21, Gradle Kotlin DSL, JUnit 5, and Spring Boot 3.x compatibility as the initial target.
-- Centralize dependency versions in the version catalog where practical; avoid unnecessary dependencies and keep versions stable.
-- No public API may be introduced casually. Review naming, compatibility, and documentation before exposing types or behavior.
-- New functionality must have focused tests. AI-generated code receives exactly the same review and test requirements as human-written code.
-- Inspect existing files and git status before modifying anything.
+- Architecture and boundaries: [docs/architecture.md](docs/architecture.md)
+- Development workflow and conventions: [docs/development.md](docs/development.md)
+- Testing strategy: [docs/testing.md](docs/testing.md)
+- Compatibility: [docs/compatibility.md](docs/compatibility.md)
+- Public API: [docs/public-api-policy.md](docs/public-api-policy.md)
+- Dependencies: [docs/dependency-policy.md](docs/dependency-policy.md)
+- AI-assisted development: [docs/ai-development.md](docs/ai-development.md)
+- Contribution workflow: [docs/contribution-workflow.md](docs/contribution-workflow.md)
+- Architecture decisions: [docs/decisions/README.md](docs/decisions/README.md)
 
-## Documentation and collaboration
+These documents are canonical. Link to them instead of duplicating detailed policy.
 
-Update relevant documentation for user-visible behavior, public APIs, and architectural decisions. Use Conventional Commits and the branch conventions in `CONTRIBUTING.md`. PRs should describe scope, testing, breaking changes, and related issues.
+## Global invariants
 
-## AI-generated code
+- `config-contract-core` must remain independent of Spring and Gradle APIs.
+- Product rules belong in core, deployment-specific parsing in deployment, Spring behavior in spring, and orchestration in the Gradle plugin.
+- Tests must be deterministic and independent of developer-specific local state.
+- Never commit secrets, credentials, tokens, private keys, webhook URLs, or secret-bearing environment files.
+- Repository-facing communication is English.
 
-Agents must keep changes within the requested scope, explain meaningful assumptions, preserve existing user changes, and avoid speculative features. Agents must inspect their diff and run the required checks before finishing.
+## Work protocol
 
-## Prohibited changes
+Before implementation, inspect the relevant instructions, implementation, tests, architecture/policy documentation, Issue scope, public API impact, and compatibility concerns. During implementation, keep the patch scoped, preserve boundaries and compatibility, add behavior tests, and update user-facing documentation.
 
-Do not implement product functionality during scaffolding-only work. Never commit credentials, tokens, secret-bearing environment files, webhook URLs, private keys, or generated local state. Do not change visibility, collaborators, branch protection, rulesets, secrets, publishing, releases, or deployment configuration without explicit authorization.
+Before completion, inspect `git diff`, run targeted tests and repository checks, verify formatting, documentation consistency, and secret hygiene, and report any incomplete verification. Work through an Issue-backed branch and PR; never push directly to `main`.
 
-## Required finishing commands
+## Failure and change discipline
 
-Before finishing a change, run formatting/lint verification, all tests, `./gradlew check`, and `./gradlew build`. Inspect the generated structure and `git diff`, validate workflow YAML and local documentation links where possible, and search for obvious secrets.
+Never delete or weaken tests to make CI green, silence an error without understanding it, silently skip verification, fabricate command results, or guess unsupported Spring behavior. Prefer explicit unsupported/unknown behavior over incorrect assumptions. Use Conventional Commits, avoid drive-by dependency upgrades and unrelated formatting rewrites, and document architectural changes with an ADR when appropriate.
+
+## Required validation
+
+```bash
+./gradlew check
+./gradlew build
+git diff --check
+```
+
+Run relevant targeted tests as described in [docs/testing.md](docs/testing.md).

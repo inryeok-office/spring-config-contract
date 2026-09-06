@@ -33,6 +33,8 @@ JDK 21 is required. Run the checks with the Gradle Wrapper:
 
 On Windows, use `gradlew.bat`.
 
+See [development](docs/development.md), [architecture](docs/architecture.md), and [testing](docs/testing.md) for project conventions.
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.
