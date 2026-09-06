@@ -10,6 +10,10 @@
 
 <!-- List the important implementation or documentation changes. -->
 
+## Behavior and Compatibility
+
+<!-- Describe behavior, compatibility, or public API impact. Write "None" when applicable. -->
+
 ## Testing
 
 <!-- List commands and relevant test coverage. -->
@@ -17,6 +21,10 @@
 ## Breaking Changes
 
 <!-- Describe any breaking changes, or write "None". -->
+
+## Documentation
+
+<!-- What documentation changed, or why is none needed? -->
 
 ## Checklist
 
