@@ -55,6 +55,23 @@ Agents must inspect the Issue, labels, assignment, branch, PR metadata, requeste
 
 ### DOCUMENTED / MANUAL
 
-- Architectural judgment, public API approval, reviewer quality, Issue ownership, ADR necessity, and security decisions remain human responsibilities.
 - Label accuracy for ambiguous changes, active ownership, compatibility judgment, and whether a change is truly small remain maintainer decisions.
-- Branch protection and rulesets require repository-plan support and administrator configuration; the current private repository cannot expose those settings through the available API.
+- Architectural judgment, public API approval, reviewer quality, Issue ownership, ADR necessity, and security decisions remain human responsibilities.
+
+## Protected main workflow
+
+The `main` branch is protected by the active `Protect main` repository ruleset.
+
+Normal merges require:
+
+- a Pull Request;
+- one approval from an authorized human reviewer;
+- successful `Check` and `Validate PR policy` checks;
+- resolved review conversations;
+- squash merge only.
+
+Approvals are dismissed when new commits are pushed. Force pushes and branch deletion are blocked. The `Apply repository labels` workflow remains informational and is not a merge blocker.
+
+For exceptional emergencies, `exijn` has a narrowly scoped bypass that can be used only through a Pull Request. This does not permit direct pushes to `main`; emergency use must remain auditable in the PR history.
+
+Branch protection and ruleset administration remain subject to GitHub permissions and organization-level policy. The repository-specific ruleset is the active source for the requirements above.
