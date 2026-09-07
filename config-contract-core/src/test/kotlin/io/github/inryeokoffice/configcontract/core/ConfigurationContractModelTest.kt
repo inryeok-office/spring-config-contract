@@ -19,6 +19,17 @@ class ConfigurationContractModelTest {
         assertThrows(IllegalArgumentException::class.java) { ConfigurationKey.of(" ") }
         assertThrows(IllegalArgumentException::class.java) { ConfigurationKey.of("app host") }
         assertThrows(IllegalArgumentException::class.java) { ConfigurationKey.of(" app.host") }
+        assertThrows(IllegalArgumentException::class.java) { ConfigurationKey.of("app.host ") }
+        assertThrows(IllegalArgumentException::class.java) { ConfigurationKey.of("app.\u0000host") }
+    }
+
+    @Test
+    fun `requirements use required and absent defaults by default`() {
+        val requirement = ConfigurationRequirement(ConfigurationKey.of("app.timeout"))
+
+        assertEquals(Presence.REQUIRED, requirement.presence)
+        assertEquals(DefaultValue.Absent, requirement.defaultValue)
+        assertEquals(null, requirement.source)
     }
 
     @Test
@@ -40,7 +51,7 @@ class ConfigurationContractModelTest {
     }
 
     @Test
-    fun `provided configurations use key and source as value semantics`() {
+    fun `provided configurations use key as identity and source as diagnostic metadata`() {
         val key = ConfigurationKey.of("DB_HOST")
         val source = SourceMetadata(".env.example:2")
 
@@ -48,7 +59,7 @@ class ConfigurationContractModelTest {
             ProvidedConfiguration(key, source),
             ProvidedConfiguration(ConfigurationKey.of("DB_HOST"), SourceMetadata(".env.example:2")),
         )
-        assertNotEquals(ProvidedConfiguration(key), ProvidedConfiguration(key, source))
+        assertEquals(ProvidedConfiguration(key), ProvidedConfiguration(key, source))
     }
 
     @Test

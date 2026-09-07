@@ -7,7 +7,16 @@ package io.github.inryeokoffice.configcontract.core
  * may retain values in their own layer when needed, but comparison does not
  * require exposing them through the core API.
  */
-data class ProvidedConfiguration(
-    val key: ConfigurationKey,
-    val source: SourceMetadata? = null,
-)
+class ProvidedConfiguration
+    @JvmOverloads
+    constructor(
+        val key: ConfigurationKey,
+        val source: SourceMetadata? = null,
+    ) {
+        /** Source is diagnostic metadata; key identity is independent of origin. */
+        override fun equals(other: Any?): Boolean = other is ProvidedConfiguration && key == other.key
+
+        override fun hashCode(): Int = key.hashCode()
+
+        override fun toString(): String = "ProvidedConfiguration(key=$key, source=$source)"
+    }
