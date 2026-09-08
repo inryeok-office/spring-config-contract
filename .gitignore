@@ -44,3 +44,6 @@ out/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude Code local overrides
+.claude/settings.local.json
