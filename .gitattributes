@@ -1,3 +1,4 @@
 * text=auto eol=lf
+# Windows batch launcher: store the blob normalized as LF, check out as CRLF.
 *.bat text eol=crlf
 *.sh text eol=lf
