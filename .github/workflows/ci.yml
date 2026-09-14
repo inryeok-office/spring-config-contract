@@ -22,5 +22,8 @@ jobs:
           java-version: "21"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
+        with:
+          # MIT-licensed cache provider; see docs/decisions/0001-gradle-actions-basic-caching.md
+          cache-provider: basic
       - name: Run checks
         run: ./gradlew check
