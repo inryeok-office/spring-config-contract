@@ -8,8 +8,16 @@ package io.github.inryeokoffice.configcontract.deployment
  * filesystem path. This is enforced by the constructor.
  * Obtaining [content] is the caller's responsibility;
  * adapters must not perform file I/O themselves.
+ *
+ * Not a `data class`: [content] may hold an entire `.env` file, including
+ * secret-like values, and a generated `toString()` would print it verbatim;
+ * do not revert this back to a `data class` without redacting [content].
+ * As a consequence, `equals`/`hashCode` are reference identity, not structural
+ * equality - two instances built from the same [name] and [content] are not
+ * `equal`. Callers relying on value equality (collections, `assertEquals`)
+ * must compare [name]/[content] directly instead.
  */
-data class DeploymentSource(
+class DeploymentSource(
     val name: String,
     val content: String,
 ) {
@@ -28,6 +36,8 @@ data class DeploymentSource(
             "Deployment source name must not escape the project directory, but was: $name"
         }
     }
+
+    override fun toString(): String = "DeploymentSource(name=$name, content=<redacted>)"
 
     private companion object {
         val ABSOLUTE_PATH = Regex("""^(/|[A-Za-z]:)""")

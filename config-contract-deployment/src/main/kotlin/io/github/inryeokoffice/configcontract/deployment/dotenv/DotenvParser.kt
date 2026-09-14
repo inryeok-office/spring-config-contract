@@ -158,7 +158,10 @@ internal object DotenvParser {
         return null
     }
 
+    /** A `#` immediately after the closing quote is not a comment; it must be preceded by whitespace. */
     private fun isCommentOrBlank(remainder: String): Boolean {
+        if (remainder.isEmpty()) return true
+        if (!remainder[0].isWhitespace()) return false
         val trimmed = remainder.trimStart()
         return trimmed.isEmpty() || trimmed.startsWith("#")
     }

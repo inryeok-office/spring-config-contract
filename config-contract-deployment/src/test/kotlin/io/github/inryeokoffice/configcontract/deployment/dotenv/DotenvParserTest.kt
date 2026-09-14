@@ -101,6 +101,29 @@ class DotenvParserTest {
     }
 
     @Test
+    fun `a hash immediately after the closing quote is rejected as trailing text, not a comment`() {
+        val doubleQuoted =
+            assertThrows(DeploymentInputException::class.java) {
+                DotenvParser.parse("adjacent-hash-double.env.example", "KEY=\"value\"#comment\n")
+            }
+        assertEquals(listOf("Unexpected text after closing quote"), doubleQuoted.problems.map { it.message })
+
+        val singleQuoted =
+            assertThrows(DeploymentInputException::class.java) {
+                DotenvParser.parse("adjacent-hash-single.env.example", "KEY='value'#comment\n")
+            }
+        assertEquals(listOf("Unexpected text after closing quote"), singleQuoted.problems.map { it.message })
+    }
+
+    @Test
+    fun `a hash separated from the closing quote by whitespace is a trailing comment`() {
+        val expected = listOf(DotenvEntry("KEY", "value", 1))
+
+        assertEquals(expected, DotenvParser.parse("spaced-hash-double.env.example", "KEY=\"value\" #comment\n"))
+        assertEquals(expected, DotenvParser.parse("spaced-hash-single.env.example", "KEY='value' #comment\n"))
+    }
+
+    @Test
     fun `a UTF-8 BOM is stripped before parsing`() {
         val withoutBom = DotenvParser.parse("plain.env.example", "FOO=bar\n")
         val withBom = DotenvParser.parse("bom.env.example", "﻿FOO=bar\n")
