@@ -1,0 +1,4 @@
+spike:
+  java-bean:
+    name: prod-file
+    max-pool-size: ${SPIKE_PROD_POOL_SIZE}

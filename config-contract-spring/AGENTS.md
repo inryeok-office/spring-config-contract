@@ -10,6 +10,7 @@ Own Spring-specific interpretation and extraction. Spring Boot 3.x is the initia
 - Forbidden: deployment-format parsing, `.env`/Compose ownership, and Gradle APIs.
 - Isolate framework-version compatibility at this boundary.
 - Do not guess Spring semantics when reliable determination is impossible; make unsupported behavior explicit.
+- Validated discovery semantics and recommended v0.1 boundaries are recorded in [the Spring configuration discovery spike](../docs/spikes/spring-configuration-discovery.md).
 
 ## Tests and common mistakes
 

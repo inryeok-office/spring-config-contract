@@ -1,0 +1,4 @@
+spike:
+  java-bean:
+    name: from-yaml
+    max-pool-size: 1

@@ -1,0 +1,11 @@
+spike:
+  java-bean:
+    name: base
+---
+spring:
+  config:
+    activate:
+      on-profile: staging
+spike:
+  java-bean:
+    name: staging-document

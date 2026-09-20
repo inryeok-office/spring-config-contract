@@ -1,0 +1,6 @@
+spike:
+  java-bean:
+    name: ${SPIKE_DATABASE_NAME}
+  value:
+    required: ${SPIKE_DATABASE_NAME}
+    with-default: ${SPIKE_MISSING_WITH_DEFAULT:from-file-default}
