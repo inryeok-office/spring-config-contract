@@ -5,6 +5,7 @@ import io.github.inryeokoffice.configcontract.deployment.InputProblem
 import io.github.inryeokoffice.configcontract.deployment.KeySyntax
 import org.snakeyaml.engine.v2.api.LoadSettings
 import org.snakeyaml.engine.v2.api.lowlevel.Compose
+import org.snakeyaml.engine.v2.common.ScalarStyle
 import org.snakeyaml.engine.v2.exceptions.MarkedYamlEngineException
 import org.snakeyaml.engine.v2.exceptions.YamlEngineException
 import org.snakeyaml.engine.v2.nodes.MappingNode
@@ -31,6 +32,8 @@ internal object ComposeParser {
     private const val MAX_ALIASES_FOR_COLLECTIONS = 50
 
     private const val MERGE_KEY = "<<"
+    private val NULL_LITERALS = setOf("~", "null", "Null", "NULL")
+    private val BOOL_LITERALS = setOf("true", "True", "TRUE", "false", "False", "FALSE")
     private val UNSUPPORTED_SERVICE_KEYS = listOf("env_file", "extends")
 
     /** @throws DeploymentInputException if [content] contains any problem, reported in line order. */
@@ -91,7 +94,10 @@ internal object ComposeParser {
 
             val serviceNode = serviceTuple.valueNode
             if (serviceNode !is MappingNode) {
-                // No configuration, or a null placeholder body: nothing to read, and not an error.
+                // Only a null placeholder body (`web:` or `web: ~`) means "no configuration".
+                if (!serviceNode.isNullScalar()) {
+                    problems += InputProblem(serviceNode.line(), "Service '$serviceName' must be a mapping")
+                }
                 continue
             }
 
@@ -143,12 +149,17 @@ internal object ComposeParser {
         for (tuple in node.value) {
             val keyNode = tuple.keyNode
             if (keyNode !is ScalarNode) {
-                problems += InputProblem(keyNode.line(), "Mapping key must be a plain string")
+                problems += InputProblem(keyNode.line(), "Mapping key must be a string")
                 continue
             }
             val key = keyNode.value
             if (key == MERGE_KEY) {
                 problems += InputProblem(keyNode.line(), unsupportedConstructMessage(MERGE_KEY))
+                continue
+            }
+            if (!keyNode.isStringScalar()) {
+                // Unquoted `true`, `123`, `null` etc. resolve to non-string tags.
+                problems += InputProblem(keyNode.line(), "Mapping key must be a string")
                 continue
             }
             val firstOccurrence = result[key]
@@ -166,7 +177,7 @@ internal object ComposeParser {
         problems: MutableList<InputProblem>,
     ): List<ComposeEntry> =
         when {
-            environmentNode is ScalarNode && environmentNode.tag == Tag.NULL -> emptyList()
+            environmentNode.isNullScalar() -> emptyList()
             environmentNode is MappingNode -> mapFormEntries(environmentNode, problems)
             environmentNode is SequenceNode -> listFormEntries(environmentNode, problems)
             else -> {
@@ -201,7 +212,7 @@ internal object ComposeParser {
         val entries = mutableListOf<ComposeEntry>()
         val firstLineByKey = mutableMapOf<String, Int>()
         for (item in node.value) {
-            if (item !is ScalarNode) {
+            if (item !is ScalarNode || !item.isStringScalar()) {
                 problems += InputProblem(item.line(), "Environment list item must be a string")
                 continue
             }
@@ -256,6 +267,18 @@ internal object ComposeParser {
     private fun Node.line(): Int = startMark.map { it.line + 1 }.orElse(1)
 
     private fun MarkedYamlEngineException.line(): Int = problemMark.map { it.line + 1 }.orElse(1)
+
+    /**
+     * The default JSON schema resolves only lowercase `null`/`true`/`false` (and empty) to non-string
+     * tags, so the remaining YAML 1.2 core-schema null and bool literals are recognised here when
+     * plain. The core schema itself is not used: it would flatten `<<` merge keys away before this
+     * parser could report them. Quoted forms keep their string tag and stay strings.
+     */
+    private fun Node.isNullScalar(): Boolean = this is ScalarNode && (tag == Tag.NULL || (isPlain() && value in NULL_LITERALS))
+
+    private fun ScalarNode.isStringScalar(): Boolean = tag == Tag.STR && !(isPlain() && (value in NULL_LITERALS || value in BOOL_LITERALS))
+
+    private fun ScalarNode.isPlain(): Boolean = scalarStyle == ScalarStyle.PLAIN
 
     private const val SERVICES_KEY = "services"
     private const val ENVIRONMENT_KEY = "environment"

@@ -164,6 +164,124 @@ class ComposeParserTest {
         assertEquals(emptyList<ComposeEntry>(), ComposeParser.parse("empty.compose.yml", ""))
     }
 
+    @Test
+    fun `a non-mapping non-null service body is reported at the service's line`() {
+        listOf("[]", "disabled", "5", "true", "[a, b]").forEach { body ->
+            val exception =
+                assertThrows(DeploymentInputException::class.java) {
+                    ComposeParser.parse("svc.compose.yml", "services:\n  web: $body\n")
+                }
+
+            assertEquals(listOf(2), exception.problems.map { it.line }, "body: $body")
+            assertEquals(listOf("Service 'web' must be a mapping"), exception.problems.map { it.message }, "body: $body")
+        }
+    }
+
+    @Test
+    fun `a null service body is empty in both bare and tilde form`() {
+        assertEquals(emptyList<ComposeEntry>(), ComposeParser.parse("svc.compose.yml", "services:\n  web:\n"))
+        assertEquals(emptyList<ComposeEntry>(), ComposeParser.parse("svc.compose.yml", "services:\n  web: ~\n"))
+    }
+
+    @Test
+    fun `core-schema null literals are an empty service body and environment`() {
+        listOf("NULL", "Null").forEach { literal ->
+            assertEquals(
+                emptyList<ComposeEntry>(),
+                ComposeParser.parse("svc.compose.yml", "services:\n  web: $literal\n"),
+                literal,
+            )
+        }
+        assertEquals(
+            emptyList<ComposeEntry>(),
+            ComposeParser.parse("env.compose.yml", "services:\n  web:\n    environment: NULL\n"),
+        )
+    }
+
+    @Test
+    fun `core-schema bool and null literals are rejected as list items and keys, quoted stay strings`() {
+        val list = "services:\n  web:\n    environment:\n      - TRUE\n      - Null\n      - False\n      - \"TRUE\"\n"
+        val listException = assertThrows(DeploymentInputException::class.java) { ComposeParser.parse("l.compose.yml", list) }
+        assertEquals(listOf(4, 5, 6), listException.problems.map { it.line })
+        assertEquals(List(3) { "Environment list item must be a string" }, listException.problems.map { it.message })
+
+        val map = "services:\n  web:\n    environment:\n      TRUE: x\n      \"TRUE\": y\n"
+        val mapException = assertThrows(DeploymentInputException::class.java) { ComposeParser.parse("m.compose.yml", map) }
+        assertEquals(listOf(4), mapException.problems.map { it.line })
+        assertEquals(listOf("Mapping key must be a string"), mapException.problems.map { it.message })
+
+        assertEquals(
+            listOf(ComposeEntry("TRUE", 4)),
+            ComposeParser.parse("q.compose.yml", "services:\n  web:\n    environment:\n      - \"TRUE\"\n"),
+        )
+    }
+
+    @Test
+    fun `only a null environment is empty, other scalars are reported`() {
+        assertEquals(
+            emptyList<ComposeEntry>(),
+            ComposeParser.parse("env.compose.yml", "services:\n  web:\n    environment: ~\n"),
+        )
+        val exception =
+            assertThrows(DeploymentInputException::class.java) {
+                ComposeParser.parse("env.compose.yml", "services:\n  web:\n    environment: 5\n")
+            }
+        assertEquals(listOf("'environment' must be a list or a mapping"), exception.problems.map { it.message })
+    }
+
+    @Test
+    fun `non-string environment list items are reported without their values`() {
+        val content =
+            """
+            services:
+              web:
+                environment:
+                  - true
+                  - 123
+                  - null
+                  - "FOO=1"
+                  - "true"
+            """.trimIndent()
+
+        val exception = assertThrows(DeploymentInputException::class.java) { ComposeParser.parse("list.compose.yml", content) }
+
+        assertEquals(listOf(4, 5, 6), exception.problems.map { it.line })
+        assertEquals(
+            List(3) { "Environment list item must be a string" },
+            exception.problems.map { it.message },
+        )
+    }
+
+    @Test
+    fun `quoted list items that look like non-strings stay valid strings`() {
+        val content = "services:\n  web:\n    environment:\n      - \"FOO=1\"\n      - \"true\"\n"
+
+        assertEquals(
+            listOf(ComposeEntry("FOO", 4), ComposeEntry("true", 5)),
+            ComposeParser.parse("list.compose.yml", content),
+        )
+    }
+
+    @Test
+    fun `unquoted bool and number map keys are reported without their values`() {
+        val content = "services:\n  web:\n    environment:\n      true: x\n      123: x\n      OK: y\n"
+
+        val exception = assertThrows(DeploymentInputException::class.java) { ComposeParser.parse("map.compose.yml", content) }
+
+        assertEquals(listOf(4, 5), exception.problems.map { it.line })
+        assertEquals(List(2) { "Mapping key must be a string" }, exception.problems.map { it.message })
+    }
+
+    @Test
+    fun `bool and number service names are reported without their values`() {
+        val content = "services:\n  true:\n    image: a\n  123:\n    image: b\n"
+
+        val exception = assertThrows(DeploymentInputException::class.java) { ComposeParser.parse("svc.compose.yml", content) }
+
+        assertEquals(listOf(2, 4), exception.problems.map { it.line })
+        assertEquals(List(2) { "Mapping key must be a string" }, exception.problems.map { it.message })
+    }
+
     private fun parse(fixtureName: String): List<ComposeEntry> = ComposeParser.parse(fixtureName, fixture(fixtureName))
 
     private fun fixture(name: String): String {
