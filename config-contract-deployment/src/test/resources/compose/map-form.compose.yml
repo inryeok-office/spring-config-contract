@@ -1,0 +1,6 @@
+services:
+  web:
+    environment:
+      APP_ENV: production
+      PORT: 8080
+      DEBUG: true

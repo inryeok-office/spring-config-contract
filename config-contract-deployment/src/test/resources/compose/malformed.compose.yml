@@ -1,0 +1,24 @@
+include:
+  - shared.yml
+services:
+  api:
+    env_file: .env
+    extends:
+      service: base
+    environment:
+      FOO: bar
+      FOO: baz
+      $BAD: value
+      NESTED:
+        inner: value
+    <<: {}
+  worker:
+    environment:
+      - FOO=1
+      - FOO=2
+      - extra: true
+  $bad:
+    environment:
+      - X=1
+  weird:
+    environment: ${COMPOSE_ENV}
