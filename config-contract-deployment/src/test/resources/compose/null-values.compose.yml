@@ -1,0 +1,9 @@
+services:
+  empty-env:
+    environment:
+  explicit-null-env:
+    environment: null
+  null-body:
+  after:
+    environment:
+      - KEEP=1

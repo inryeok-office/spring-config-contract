@@ -1,0 +1,9 @@
+services:
+  web:
+    environment:
+      - FOO=1
+---
+services:
+  api:
+    environment:
+      - BAR=1

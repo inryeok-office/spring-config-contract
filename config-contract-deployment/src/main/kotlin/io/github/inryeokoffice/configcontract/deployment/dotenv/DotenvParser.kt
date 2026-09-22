@@ -2,6 +2,7 @@ package io.github.inryeokoffice.configcontract.deployment.dotenv
 
 import io.github.inryeokoffice.configcontract.deployment.DeploymentInputException
 import io.github.inryeokoffice.configcontract.deployment.InputProblem
+import io.github.inryeokoffice.configcontract.deployment.KeySyntax
 
 /**
  * Parses `.env.example` syntax into [DotenvEntry] values.
@@ -11,7 +12,6 @@ import io.github.inryeokoffice.configcontract.deployment.InputProblem
  * it must never appear in core or in any public signature.
  */
 internal object DotenvParser {
-    private val KEY_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
     private val LINE_BREAK = Regex("\r\n|\r|\n")
     private const val BOM = "\uFEFF"
 
@@ -39,8 +39,8 @@ internal object DotenvParser {
             }
 
             val key = declaration.substring(0, equalsIndex).trim()
-            if (!KEY_PATTERN.matches(key)) {
-                problems += InputProblem(lineNumber, "Invalid key '$key'; keys must match [A-Za-z_][A-Za-z0-9_]*")
+            if (!KeySyntax.isValid(key)) {
+                problems += InputProblem(lineNumber, "Invalid key '$key'; keys must match ${KeySyntax.DESCRIPTION}")
                 return@forEachIndexed
             }
 

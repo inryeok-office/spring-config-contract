@@ -1,0 +1,6 @@
+services:
+  web:
+    environment:
+      - APP_ENV=production
+      - PORT=8080
+      - DATABASE_URL=postgres://localhost:5432/app

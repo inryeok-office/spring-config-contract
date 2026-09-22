@@ -6,6 +6,7 @@ import io.github.inryeokoffice.configcontract.core.SourceMetadata
 import io.github.inryeokoffice.configcontract.deployment.DeploymentInputAdapter
 import io.github.inryeokoffice.configcontract.deployment.DeploymentInputException
 import io.github.inryeokoffice.configcontract.deployment.DeploymentSource
+import io.github.inryeokoffice.configcontract.deployment.sourceLocation
 
 /**
  * Reads `.env.example` [DeploymentSource] content into core provided configuration.
@@ -22,7 +23,7 @@ object DotenvExampleAdapter : DeploymentInputAdapter {
         DotenvParser.parse(source.name, source.content).map { entry ->
             ProvidedConfiguration(
                 ConfigurationKey.of(entry.key),
-                SourceMetadata("${source.name}:${entry.line}"),
+                SourceMetadata(sourceLocation(source.name, entry.line)),
             )
         }
 }

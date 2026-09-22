@@ -1,0 +1,8 @@
+services:
+  web:
+    environment:
+      - DOLLAR_VAR=$HOME
+      - BRACED_VAR=${HOME}/bin
+  api:
+    environment:
+      MAP_VAR: ${HOME}/config

@@ -1,0 +1,6 @@
+services:
+  base:
+    environment: &shared
+      SHARED_KEY: value
+  api:
+    environment: *shared

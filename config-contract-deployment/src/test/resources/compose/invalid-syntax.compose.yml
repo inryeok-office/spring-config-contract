@@ -1,0 +1,5 @@
+services:
+  web:
+    environment:
+      - FOO=bar
+     - BAD_INDENT

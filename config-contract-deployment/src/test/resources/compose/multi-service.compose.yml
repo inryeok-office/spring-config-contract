@@ -1,0 +1,9 @@
+services:
+  api:
+    environment:
+      - SHARED_KEY=1
+      - API_ONLY=2
+  worker:
+    environment:
+      SHARED_KEY: 3
+      WORKER_ONLY: 4

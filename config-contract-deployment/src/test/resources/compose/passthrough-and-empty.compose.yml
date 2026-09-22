@@ -1,0 +1,11 @@
+services:
+  web:
+    environment:
+      - PASSTHROUGH
+      - EMPTY_EQ=
+      - REGULAR=value
+  api:
+    environment:
+      MAP_PASSTHROUGH:
+      MAP_EMPTY: ""
+      MAP_REGULAR: value
