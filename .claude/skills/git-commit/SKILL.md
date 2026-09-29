@@ -8,6 +8,9 @@ description: Commit staged work in this repository following its Conventional Co
 Create a commit that satisfies `AGENTS.md`, `docs/development.md`, and the
 `Validate PR policy` workflow that will later read these commits.
 
+Reply to the user in Korean. Commit messages stay English, as required by
+`AGENTS.md`.
+
 ## 1. Inspect before writing anything
 
 ```bash

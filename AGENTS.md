@@ -38,6 +38,7 @@ These documents are canonical. Link to them instead of duplicating detailed poli
 - Tests must be deterministic and independent of developer-specific local state.
 - Never commit secrets, credentials, tokens, private keys, webhook URLs, or secret-bearing environment files.
 - Repository-facing communication is English.
+- Replies to the user in chat are written in Korean. Repository-facing content (code, comments, docs, commits, Issues, PRs) stays English.
 
 ## Work protocol
 
