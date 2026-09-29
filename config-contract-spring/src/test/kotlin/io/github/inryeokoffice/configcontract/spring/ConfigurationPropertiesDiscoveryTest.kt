@@ -9,6 +9,7 @@ import io.github.inryeokoffice.configcontract.spring.fixtures.JavaBeanFixture
 import io.github.inryeokoffice.configcontract.spring.fixtures.JavaRecordFixture
 import io.github.inryeokoffice.configcontract.spring.fixtures.KotlinConstructorFixture
 import io.github.inryeokoffice.configcontract.spring.fixtures.KotlinMutableFixture
+import io.github.inryeokoffice.configcontract.spring.fixtures.SetterVisibilityProperties
 import io.github.inryeokoffice.configcontract.spring.fixtures.ValidatedFixture
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -125,6 +126,16 @@ class ConfigurationPropertiesDiscoveryTest {
                 .single()
                 .message
                 .contains("fixture.invalidPrefix"),
+        )
+    }
+
+    @Test
+    fun `package-private setters are bindable while protected and private setters are not`() {
+        val result = discover(SetterVisibilityProperties::class.java)
+
+        assertEquals(
+            listOf("crosscheck.setter-visibility.package-private-value", "crosscheck.setter-visibility.public-value"),
+            result.requirements.map { it.key.value },
         )
     }
 

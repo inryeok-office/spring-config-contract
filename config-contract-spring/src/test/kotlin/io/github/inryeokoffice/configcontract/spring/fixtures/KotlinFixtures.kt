@@ -128,6 +128,10 @@ class JavaBeanConfiguration
 @EnableConfigurationProperties(KotlinMutableFixture::class)
 class KotlinMutableConfiguration
 
+@Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(SetterVisibilityProperties::class)
+class SetterVisibilityConfiguration
+
 /** Holds the escaped placeholder, which Spring must inject literally. */
 class EscapedValueConsumer(
     @Value("\\\${crosscheck.escaped}") val value: String,

@@ -176,6 +176,10 @@ internal class ConfigurationPropertiesScanner(
         }
     }
 
+    /**
+     * Same filter as `JavaBeanBinder`, which is not `java.beans` introspection: package-private
+     * accessors are bindable, and only private and protected ones are excluded.
+     */
     private fun isCandidate(method: Method): Boolean {
         val modifiers = method.modifiers
         return !Modifier.isPrivate(modifiers) &&

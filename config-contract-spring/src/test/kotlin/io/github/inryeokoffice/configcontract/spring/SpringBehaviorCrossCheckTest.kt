@@ -22,6 +22,8 @@ import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredIntConfigu
 import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredIntProperties
 import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredStringConfiguration
 import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredStringProperties
+import io.github.inryeokoffice.configcontract.spring.fixtures.SetterVisibilityConfiguration
+import io.github.inryeokoffice.configcontract.spring.fixtures.SetterVisibilityProperties
 import io.github.inryeokoffice.configcontract.spring.spike.PlaceholderConfiguration
 import io.github.inryeokoffice.configcontract.spring.spike.SpikeApplication
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -70,6 +72,19 @@ class SpringBehaviorCrossCheckTest {
                 ).use { context -> PRECEDENCE_KEYS.associateWith { context.environment.getProperty(it) } }
 
         assertEquals(springValues, PRECEDENCE_KEYS.associateWith { discovered[it] })
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["public-value", "package-private-value", "protected-value", "private-value"])
+    fun `discovered JavaBean keys match the setters Spring binds`(property: String) {
+        val key = "crosscheck.setter-visibility.$property"
+
+        val springBound =
+            SpikeApplication
+                .run(SetterVisibilityConfiguration::class.java, systemProperties = mapOf(key to "bound"))
+                .use { it.getBean(SetterVisibilityProperties::class.java).boundValue(property) == "bound" }
+
+        assertEquals(springBound, discover(SetterVisibilityProperties::class.java).hasRequirement(key))
     }
 
     @Test
