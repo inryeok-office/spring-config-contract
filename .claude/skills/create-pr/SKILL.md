@@ -8,6 +8,9 @@ description: Open a pull request that passes this repository's Validate PR polic
 Open a PR that satisfies `.github/pull_request_template.md`,
 `.github/workflows/pr-policy.yml`, and `docs/governance.md`.
 
+Reply to the user in Korean. The PR title, body, and commit messages stay
+English, as required by `AGENTS.md`.
+
 ## 1. Preconditions
 
 ```bash
