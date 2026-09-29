@@ -1,11 +1,13 @@
 dependencies {
     implementation(project(":config-contract-core"))
 
-    // Issue #17 spike evidence only. Production Spring dependencies are decided
-    // by the extractor implementation, not by these behavior probes.
-    testImplementation(libs.spring.boot.core)
-    testRuntimeOnly(libs.snakeyaml)
-    testRuntimeOnly(libs.kotlin.reflect)
+    // Discovery delegates binding rules to Spring Boot's public APIs; see ADR 0002.
+    implementation(libs.spring.boot.core)
+    // Kotlin constructor nullability and default-argument metadata.
+    implementation(libs.kotlin.reflect)
+    // Required by Spring Boot's YamlPropertySourceLoader.
+    runtimeOnly(libs.snakeyaml)
+
     testAnnotationProcessor(libs.spring.boot.configuration.processor)
 }
 

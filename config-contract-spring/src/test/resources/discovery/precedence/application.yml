@@ -1,0 +1,29 @@
+shared:
+  key: base-yml
+  yml-only: from-yml
+layered:
+  key: base-yml
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+layered:
+  key: yml-prod-document
+  document-only: from-prod-document
+shared:
+  key: yml-prod-document
+---
+spring:
+  config:
+    activate:
+      on-profile: default
+default:
+  document-only: from-default-document
+---
+spring:
+  config:
+    activate:
+      on-profile: extra, other
+layered:
+  list-activated: from-extra-document

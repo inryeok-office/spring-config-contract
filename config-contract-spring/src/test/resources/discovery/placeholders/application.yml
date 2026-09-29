@@ -1,0 +1,15 @@
+fixture:
+  database:
+    name: ${FIXTURE_DATABASE_NAME}
+    user: ${FIXTURE_DATABASE_USER:app}
+  value:
+    required: configured-in-file
+  plain: plain-value
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+fixture:
+  database:
+    pool-size: ${FIXTURE_PROD_POOL_SIZE}

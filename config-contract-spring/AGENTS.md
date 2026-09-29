@@ -11,6 +11,7 @@ Own Spring-specific interpretation and extraction. Spring Boot 3.x is the initia
 - Isolate framework-version compatibility at this boundary.
 - Do not guess Spring semantics when reliable determination is impossible; make unsupported behavior explicit.
 - Validated discovery semantics and recommended v0.1 boundaries are recorded in [the Spring configuration discovery spike](../docs/spikes/spring-configuration-discovery.md).
+- Discovery delegates Spring rules to public Spring Boot APIs and never instantiates application classes; see [ADR-0002](../docs/decisions/0002-spring-discovery-through-spring-boot-apis.md). Confirm new rules against a real Spring Boot application in `SpringBehaviorCrossCheckTest`.
 
 ## Tests and common mistakes
 

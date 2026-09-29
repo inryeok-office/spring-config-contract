@@ -1,0 +1,22 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  profiles:
+    group:
+      production: prod,metrics
+fixture:
+  base: base
+---
+spring:
+  config:
+    activate:
+      on-profile: "!prod"
+fixture:
+  not-prod: expression
+---
+spring:
+  config:
+    activate:
+      on-cloud-platform: kubernetes
+fixture:
+  cloud: kubernetes
