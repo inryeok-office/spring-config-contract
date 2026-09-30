@@ -15,6 +15,7 @@ import org.gradle.api.tasks.SourceSet
 class ConfigContractPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("configContract", ConfigContractExtension::class.java)
+        extension.activeProfiles.convention(emptyList())
 
         val check =
             project.tasks.register("configContractCheck", ConfigContractCheckTask::class.java) { task ->

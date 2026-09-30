@@ -66,7 +66,7 @@ abstract class ConfigContractCheckTask : DefaultTask() {
         val base = baseDirectory.get().asFile
         val applicationConfigurations =
             applicationConfigurationFiles.files
-                .map { ApplicationConfigurationSource(relativeName(base, it), readInput(base, it)) }
+                .map { file -> readInput(base, file).let { (name, content) -> ApplicationConfigurationSource(name, content) } }
                 .sortedBy { it.name }
         val deploymentInputs =
             deploymentInputs(base, dotenvExampleFiles, DotenvExampleAdapter) +
@@ -101,7 +101,8 @@ abstract class ConfigContractCheckTask : DefaultTask() {
         adapter: DeploymentInputAdapter,
     ): List<DeploymentContractInput> =
         files.files.map { file ->
-            DeploymentContractInput(adapter, DeploymentSource(relativeName(base, file), readInput(base, file)))
+            val (name, content) = readInput(base, file)
+            DeploymentContractInput(adapter, DeploymentSource(name, content))
         }
 
     private fun <T> withApplicationClasses(action: (List<Class<*>>) -> T): T {
@@ -144,14 +145,20 @@ abstract class ConfigContractCheckTask : DefaultTask() {
             }.distinct()
             .sorted()
 
+    /** Returns the project-relative name and content of [file], which must resolve inside [base]. */
     private fun readInput(
         base: File,
         file: File,
-    ): String {
+    ): Pair<String, String> {
+        val name = relativeName(base, file)
         if (!file.isFile) {
-            throw GradleException("Configuration contract input does not exist: ${relativeName(base, file)}")
+            throw GradleException("Configuration contract input does not exist: $name")
         }
-        return file.readText(Charsets.UTF_8)
+        // The name check above is lexical; resolve symbolic links so a link cannot point outside the root.
+        if (!file.toPath().toRealPath().startsWith(base.toPath().toRealPath())) {
+            throw GradleException("Configuration contract input must resolve inside ${base.name}: $name")
+        }
+        return name to file.readText(Charsets.UTF_8)
     }
 
     private fun relativeName(

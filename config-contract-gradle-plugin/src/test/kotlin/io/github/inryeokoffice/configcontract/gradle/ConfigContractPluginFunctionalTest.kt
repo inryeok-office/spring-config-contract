@@ -5,11 +5,14 @@ import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.abort
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties
 import java.io.File
+import java.io.IOException
+import java.nio.file.Files
 
 class ConfigContractPluginFunctionalTest {
     @TempDir
@@ -104,6 +107,49 @@ class ConfigContractPluginFunctionalTest {
         val result = runAndFail("configContractCheck")
 
         assertTrue(result.output.contains("Configuration contract input does not exist: compose.yml"), result.output)
+    }
+
+    @Test
+    fun `analyzes the default profile when active profiles are not configured`() {
+        writeProject(extension = """dotenvExampleFiles.from(".env.example")""")
+        write(".env.example", "APP_REGION=eu\n")
+        write("src/main/resources/application-default.yml", "app:\n  api-key: \${DEFAULT_KEY}\n")
+
+        val result = runAndFail("configContractCheck")
+
+        assertEquals(
+            listOf(
+                "Configuration contract check failed: 1 finding (1 missing)",
+                "MISSING DEFAULT_KEY (src/main/resources/application-default.yml:2)",
+            ),
+            reportLines(result.output),
+            result.output,
+        )
+    }
+
+    @Test
+    fun `rejects a symbolic link that resolves outside the root project`(
+        @TempDir outside: File,
+    ) {
+        writeProject(extension = """dotenvExampleFiles.from("deploy/.env.example")""")
+        val target = outside.resolve("outside-deployment.txt").apply { writeText("APP_API_KEY=example\n") }
+        val link = projectDir.resolve("deploy/.env.example").toPath()
+        Files.createDirectories(link.parent)
+        try {
+            Files.createSymbolicLink(link, target.toPath())
+        } catch (exception: IOException) {
+            abort("Symbolic links cannot be created here: ${exception.message}")
+        } catch (exception: UnsupportedOperationException) {
+            abort("Symbolic links are not supported here: ${exception.message}")
+        }
+
+        val result = runAndFail("configContractCheck")
+
+        assertEquals(TaskOutcome.FAILED, result.task(":configContractCheck")?.outcome)
+        assertTrue(
+            result.output.contains("Configuration contract input must resolve inside ${projectDir.name}: deploy/.env.example"),
+            result.output,
+        )
     }
 
     @Test
