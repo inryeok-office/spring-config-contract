@@ -4,7 +4,7 @@
 - Spring Boot version exercised: 3.5.16 (JDK 21 toolchain, Kotlin version from the version catalog)
 - Evidence: `config-contract-spring/src/test/kotlin/io/github/inryeokoffice/configcontract/spring/spike/`
 
-This spike records observed Spring Boot behavior that affects how a future extractor should build `ConfigurationRequirement` values. It adds no production code and no production dependency. Spring Boot, SnakeYAML, `kotlin-reflect`, and `spring-boot-configuration-processor` are test-scope dependencies of `config-contract-spring` only.
+This spike records observed Spring Boot behavior that affects how a future extractor should build `ConfigurationRequirement` values. The spike itself added no production code or production dependency. The later extractor made Spring Boot, `kotlin-reflect`, and SnakeYAML production dependencies of `config-contract-spring` (see [Implementation status](#implementation-status)). `spring-boot-configuration-processor` remains test-scope only.
 
 Every "Observed" statement below is backed by a test that starts a real `SpringApplication` with the OS environment and JVM system properties replaced by explicit maps, so the results are deterministic. Statements marked "Not verified" were not tested in this spike and must not be treated as supported behavior.
 
@@ -97,6 +97,15 @@ These are recommendations for the extractor implementation Issue, not implemente
 5. **File placeholders:** Extract `${NAME}` and `${NAME:default}` from `application.properties` and `application.yml` as requirements. For unresolved placeholders consumed by `@ConfigurationProperties`, report the value as unknown instead of silently treating it as satisfied, because Spring binds the literal text.
 6. **Profiles:** Analyze the base documents by default, and accept an explicit list of active profiles as input. Do not infer active profiles from the deployment environment in v0.1. Report profile expressions (`on-profile` with `!`, `&`, or `|`), profile groups, and `spring.config.import` as unsupported.
 7. **Metadata:** Do not rely on `spring-configuration-metadata.json` as the only source. It may complement source or bytecode inspection for Java.
+
+## Implementation status
+
+Issue [#18](https://github.com/inryeok-office/spring-config-contract/issues/18) implements these recommendations in `SpringConfigurationDiscovery` and `SpringEnvironmentKeys`, following [ADR-0002](../decisions/0002-spring-discovery-through-spring-boot-apis.md). It differs from the recommendations above in these ways:
+
+- Java field initializer and Kotlin default values are not recorded as `DefaultValue.Present`, because reading them would require running application code. These properties remain `OPTIONAL`, so comparison is unaffected.
+- A key that holds an unresolved file placeholder keeps the raw `${NAME}` text as its default, because Spring binds that text. The placeholder `NAME` is a separate `REQUIRED` requirement, so a missing environment key is still reported.
+- Every effective key from the application configuration files is an `OPTIONAL` requirement, with its configured value as the default. This lets deployment override the key without it being reported as unused.
+- `SpringBehaviorCrossCheckTest` starts real Spring Boot applications and confirms requiredness, file and profile precedence (including the implicit `default` profile), escaped placeholders, and environment-variable key alignment.
 
 ## Explicitly out of scope or unverified
 

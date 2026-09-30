@@ -19,6 +19,10 @@ abstract class VerifyRepositoryRulesTask : DefaultTask() {
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val springFiles: ConfigurableFileCollection
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val secretSensitiveFiles: ConfigurableFileCollection
 
     @TaskAction
@@ -26,6 +30,7 @@ abstract class VerifyRepositoryRulesTask : DefaultTask() {
         val checks = listOf(
             "config-contract-core" to (coreFiles to listOf("org.springframework", "org.gradle.api")),
             "config-contract-deployment" to (deploymentFiles to listOf("org.springframework")),
+            "config-contract-spring" to (springFiles to listOf("org.gradle.api", "configcontract.deployment")),
         )
         val violations = checks.flatMap { (module, check) ->
             check.first.files.flatMap { source ->
@@ -58,6 +63,7 @@ val verifyRepositoryRules = tasks.register<VerifyRepositoryRulesTask>("verifyRep
 
     coreFiles.from(fileTree("config-contract-core/src"), "config-contract-core/build.gradle.kts")
     deploymentFiles.from(fileTree("config-contract-deployment/src"), "config-contract-deployment/build.gradle.kts")
+    springFiles.from(fileTree("config-contract-spring/src"), "config-contract-spring/build.gradle.kts")
     secretSensitiveFiles.from(fileTree(rootDir) {
         exclude(".git/**", ".gradle/**", ".gradle-user/**", "**/build/**", "**/.env.example")
         include("**/.env", "**/.env.*", "**/*.pem", "**/*.key")

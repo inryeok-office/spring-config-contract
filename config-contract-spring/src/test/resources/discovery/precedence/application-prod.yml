@@ -1,0 +1,5 @@
+layered:
+  key: prod-file
+  prod-file-only: from-prod-file
+shared:
+  key: prod-yml
