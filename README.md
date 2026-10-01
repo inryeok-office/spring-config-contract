@@ -52,6 +52,26 @@ Spring Boot
 
 This is a conceptual data flow for the planned product.
 
+## The `configContractCheck` task
+
+The Gradle plugin `io.github.inryeok-office.config-contract` is implemented on `main` but not yet published, so it can only be used from a source build. It adds a `configContract` extension and a `configContractCheck` task:
+
+```kotlin
+plugins {
+    java
+    id("io.github.inryeok-office.config-contract")
+}
+
+configContract {
+    activeProfiles.set(listOf("prod"))        // optional; empty analyzes the default profile
+    dotenvExampleFiles.from(".env.example")   // optional
+    composeFiles.from("compose.yml")          // optional
+    // applicationConfigurationFiles defaults to top-level application*.properties|yml|yaml in main resources
+}
+```
+
+`./gradlew configContractCheck` compiles the `main` source set, discovers its requirements, reads the deployment files, and prints one line per finding, ordered by key. The task fails when any `MISSING` or `UNUSED` finding exists; Spring discovery diagnostics are listed but do not fail the build. Every path in the output is relative to the root project, and deployment files must live inside it. The task is not attached to `check`.
+
 ## Architecture
 
 - `config-contract-core`: framework-independent domain models and comparison rules.
