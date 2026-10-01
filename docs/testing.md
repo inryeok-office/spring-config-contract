@@ -7,7 +7,7 @@ Tests verify behavior at the narrowest useful boundary. They must be determinist
 | Core domain behavior | Fast unit tests for deterministic models and rules; avoid testing implementation details. |
 | Parser behavior | Unit tests for valid, empty, malformed, and boundary inputs; use minimal fixtures. |
 | Spring integration | Focused integration tests for supported Spring semantics, including relevant Java and Kotlin usage when applicable. |
-| Gradle plugin integration | Gradle TestKit for meaningful plugin behavior and task outcomes; keep samples minimal. |
+| Gradle plugin integration | Gradle TestKit for meaningful plugin behavior and task outcomes; keep samples minimal. End-to-end scenarios live in [`samples/`](../samples/README.md) and run offline against copies in a temporary directory. |
 | Bug fix | A regression test whenever reasonably possible, reproducing the failure before the fix. |
 | Documentation-only change | No code test is required, but run link, formatting, and any affected validation checks. |
 

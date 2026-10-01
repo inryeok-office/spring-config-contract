@@ -1,0 +1,5 @@
+services:
+  app:
+    image: example/app:1.0
+    environment:
+      APP_DB_URL: jdbc:postgresql://db:5432/app
