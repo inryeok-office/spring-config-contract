@@ -174,22 +174,17 @@ class SampleProjectsFunctionalTest {
             """
             allprojects { p ->
                 p.plugins.withId('java') {
-                    p.dependencies.add('implementation', p.files(${groovyList(springJars)}))
+                    p.dependencies.add('implementation', p.files(${groovyPathList(springJars)}))
                 }
                 p.tasks.configureEach { task ->
                     if (task.name == 'configContractCheck') {
-                        task.applicationClassesDirs.from(p.files(${groovyList(applicationClassesDirs)}))
+                        task.applicationClassesDirs.from(p.files(${groovyPathList(applicationClassesDirs)}))
                     }
                 }
             }
             """.trimIndent()
         return scriptDir.resolve("sample-init.gradle").apply { writeText(script) }
     }
-
-    private fun groovyList(files: List<File>): String =
-        files.joinToString(prefix = "[", postfix = "]") {
-            "'${it.invariantSeparatorsPath}'"
-        }
 
     private fun runner(initScript: File): GradleRunner =
         GradleRunner
