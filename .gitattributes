@@ -2,3 +2,5 @@
 # Windows batch launcher: store the blob normalized as LF, check out as CRLF.
 *.bat text eol=crlf
 *.sh text eol=lf
+# Sample fixtures: expected finding locations contain line numbers, so check them out with LF on every OS.
+samples/** text eol=lf

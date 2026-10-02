@@ -1,0 +1,4 @@
+services:
+  app:
+    environment:
+      OLD_ENDPOINT: https://old.example.com
