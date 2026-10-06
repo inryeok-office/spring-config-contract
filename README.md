@@ -16,7 +16,7 @@ Conceptually, an application might require `app.jwt.secret`, `DB_HOST`, and `RED
 
 ## Status
 
-**Early development.** Product functionality is not yet generally available. The repository currently contains the development infrastructure, module scaffolding, and project documentation. Development is targeting [v0.1.0](https://github.com/inryeok-office/spring-config-contract/milestone/1).
+**Early development.** The v0.1 `configContractCheck` Gradle task is implemented but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. Development is targeting [v0.1.0](https://github.com/inryeok-office/spring-config-contract/milestone/1).
 
 Follow the [v0.1.0 release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26) to see the planned work.
 
