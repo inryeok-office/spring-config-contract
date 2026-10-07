@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Own parsers and adapters for deployment configuration formats, including planned `.env` and Docker Compose inputs.
+Own parsers and adapters for deployment configuration formats, including `.env` and Docker Compose inputs.
 
 ## Boundaries
 

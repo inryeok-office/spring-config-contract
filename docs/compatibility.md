@@ -1,6 +1,6 @@
 # Compatibility
 
-Compatibility claims follow the Gradle build, version catalog, and CI configuration. The initial target is JDK 21 and Spring Boot 3.x compatibility as planned; Spring dependencies are declared by `config-contract-spring`.
+Compatibility claims follow the Gradle build, version catalog, and CI configuration. Spring dependencies are declared by `config-contract-spring`.
 
 - JDK: develop and test with the Java 21 toolchain configured by Gradle. Other local JVMs are not a supported project target unless CI and the build are updated.
 - Kotlin: use the Kotlin version in `gradle/libs.versions.toml`; do not assume compatibility with arbitrary compiler versions.

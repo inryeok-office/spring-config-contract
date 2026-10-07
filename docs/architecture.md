@@ -1,6 +1,6 @@
 # Architecture
 
-Spring Config Contract is a dependency-directed multi-module Gradle project. The current implementation is scaffolding only; the boundaries below describe ownership for future work.
+Spring Config Contract is a dependency-directed multi-module Gradle project. The v0.1 implementation follows the ownership boundaries below; they also govern future work.
 
 ```text
                  +--------------------------+
@@ -28,7 +28,7 @@ Spring Config Contract is a dependency-directed multi-module Gradle project. The
 | Module | Owns | May depend on | Must not own |
 | --- | --- | --- | --- |
 | `config-contract-core` | Framework-independent contract models and comparison rules | Minimal JDK/Kotlin functionality | Spring, Gradle APIs, filesystem access, environment access, or format-specific parsing |
-| `config-contract-spring` | Spring-specific interpretation and extraction | `core`, Spring libraries when introduced | `.env`/Compose parsing or Gradle orchestration |
+| `config-contract-spring` | Spring-specific interpretation and extraction | `core`, Spring libraries | `.env`/Compose parsing or Gradle orchestration |
 | `config-contract-deployment` | Deployment input parsers and adapters | `core`, format libraries when justified | Spring behavior or Gradle APIs |
 | `config-contract-gradle-plugin` | Gradle extension/task wiring and composition | Other project modules and Gradle APIs | Product business rules or Gradle types in core |
 | `config-contract-test` | Reusable fixtures, builders, and test utilities | Modules needed to support tests | Hidden product logic or production dependencies |

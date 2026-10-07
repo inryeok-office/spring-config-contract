@@ -5,7 +5,6 @@ import io.github.inryeokoffice.configcontract.deployment.InputProblem
 import io.github.inryeokoffice.configcontract.deployment.KeySyntax
 import org.snakeyaml.engine.v2.api.LoadSettings
 import org.snakeyaml.engine.v2.api.lowlevel.Compose
-import org.snakeyaml.engine.v2.common.ScalarStyle
 import org.snakeyaml.engine.v2.exceptions.MarkedYamlEngineException
 import org.snakeyaml.engine.v2.exceptions.YamlEngineException
 import org.snakeyaml.engine.v2.nodes.MappingNode
@@ -277,8 +276,6 @@ internal object ComposeParser {
     private fun Node.isNullScalar(): Boolean = this is ScalarNode && (tag == Tag.NULL || (isPlain() && value in NULL_LITERALS))
 
     private fun ScalarNode.isStringScalar(): Boolean = tag == Tag.STR && !(isPlain() && (value in NULL_LITERALS || value in BOOL_LITERALS))
-
-    private fun ScalarNode.isPlain(): Boolean = scalarStyle == ScalarStyle.PLAIN
 
     private const val SERVICES_KEY = "services"
     private const val ENVIRONMENT_KEY = "environment"

@@ -25,5 +25,13 @@ jobs:
         with:
           # MIT-licensed cache provider; see docs/decisions/0001-gradle-actions-basic-caching.md
           cache-provider: basic
+      - name: Verify Gradle wrapper line ending normalization
+        shell: bash
+        run: |
+          git ls-files --eol gradlew.bat
+          if ! git ls-files --eol gradlew.bat | grep -q '^i/lf '; then
+            echo "gradlew.bat must be stored with LF in the Git index to match .gitattributes."
+            exit 1
+          fi
       - name: Run checks
         run: ./gradlew check
