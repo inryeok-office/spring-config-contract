@@ -6,30 +6,30 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![JDK](https://img.shields.io/badge/JDK-21-blue.svg)](docs/compatibility.md)
 
-Spring Config Contract is an open-source developer tool being built to check whether configuration required by a Spring Boot application matches the configuration provided by its deployment environment.
+Spring Config Contract is an open-source developer tool that checks whether configuration required by a Spring Boot application matches the configuration provided by its deployment environment.
 
 ## Why?
 
 Configuration drift is easy to miss: an application can require a property that is absent from deployment, while deployment files can retain values that the application no longer uses. This project is about comparing two different sides of that contract—not merely comparing Spring configuration files with each other.
 
-Conceptually, an application might require `app.jwt.secret`, `DB_HOST`, and `REDIS_HOST`, while deployment provides `DB_HOST`, `REDIS_HOST`, and `LEGACY_API_KEY`. A future contract check should be able to report the missing and unused keys. This is an illustrative target, not an executable feature today.
+For supported inputs, the v0.1 workflow reports required keys that deployment omits and deployment keys the application does not recognize. See the [usage guide](docs/usage-guide.md) for the supported input subset and examples.
 
 ## Status
 
-**Early development.** The v0.1 `configContractCheck` Gradle task is implemented but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. Development is targeting [v0.1.0](https://github.com/inryeok-office/spring-config-contract/milestone/1).
+**Early development.** The v0.1 `configContractCheck` Gradle task is implemented and under release-candidate review, but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. The release scope is tracked in the [v0.1.0 milestone](https://github.com/inryeok-office/spring-config-contract/milestone/1).
 
-Follow the [v0.1.0 release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26) to see the planned work.
+Follow the [v0.1.0 release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26) for scope status.
 
-## Planned v0.1.0 scope
+## v0.1.0 scope
 
-The first release is planned to cover:
+The first release implements:
 
-- Spring-side inputs: `@ConfigurationProperties`, `@Value`, and `application.yml` / supported Spring application configuration.
+- Spring-side inputs: supported `@ConfigurationProperties`, `@Value`, and application configuration cases, built and tested against Spring Boot 3.5.x.
 - Deployment-side inputs: `.env.example` and Docker Compose.
 - Contract findings: missing and unused configuration, required/optional behavior, and default-value-aware comparison.
-- Developer integration: a Gradle integration with a planned `configContractCheck` task and CI-friendly results.
+- Developer integration: a Gradle integration with the `configContractCheck` task and CI-friendly results.
 
-These capabilities are planned and are not available in the current repository.
+The plugin is not published. It can be used from a source checkout as described in the [usage guide](docs/usage-guide.md).
 
 ## How it is intended to work
 
@@ -50,7 +50,7 @@ Spring Boot
       .env.example / Docker Compose
 ```
 
-This is a conceptual data flow for the planned product.
+This is the v0.1 data flow for the supported inputs.
 
 ## The `configContractCheck` task
 
@@ -88,7 +88,7 @@ See the [roadmap](docs/roadmap.md), [v0.1.0 milestone](https://github.com/inryeo
 
 ## Development
 
-JDK 21 is required. The product is not implemented yet, but the repository build and verification infrastructure can be run with the Gradle Wrapper:
+JDK 21 is required. The implemented workflow and repository verification can be run with the Gradle Wrapper:
 
 ```bash
 ./gradlew check

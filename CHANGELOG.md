@@ -4,7 +4,15 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
-- Added the initial multi-module Kotlin/Gradle project infrastructure.
-- Added Spring Boot configuration discovery for `@ConfigurationProperties`, `@Value`, and application configuration files, plus Spring environment-variable key alignment.
-- Added the `io.github.inryeok-office.config-contract` Gradle plugin with a `configContract` extension and a `configContractCheck` task that reports missing and unused configuration and fails the build on findings.
-- Added end-to-end sample projects under `samples/` and Gradle TestKit tests that run `configContractCheck` against them offline, covering valid, missing, unused, optional and default-aware, and Kotlin binding scenarios.
+No changes yet.
+
+## v0.1.0 release candidate (draft)
+
+- Introduced the framework-independent configuration contract model and deterministic `MISSING` and `UNUSED` comparison findings.
+- Added Spring discovery for the supported `@ConfigurationProperties`, `@Value`, and application configuration inputs, including Spring environment-variable key alignment.
+- Added `.env.example` and Docker Compose `services.<name>.environment` deployment inputs.
+- Added the unpublished `io.github.inryeok-office.config-contract` Gradle plugin with `configContract` and `configContractCheck`; findings fail the task with a non-zero outcome.
+- Added offline end-to-end samples for valid, missing, unused, optional/default, and Kotlin binding scenarios.
+- Built and tested Spring discovery against Spring Boot 3.5.x on JDK 21. Other Spring Boot 3.x lines and Spring Boot 4.x are not claimed.
+- Known limitations include treating every Compose service environment as application-provided, skipping nested/collection/map `@ConfigurationProperties`, and requiring CI to invoke `configContractCheck` explicitly.
+- The plugin is not published and this draft does not announce a release.

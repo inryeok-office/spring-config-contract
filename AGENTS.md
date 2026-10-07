@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Spring Config Contract is an early-stage developer tool intended to verify whether configuration required by a Spring Boot application matches configuration supplied by deployment environments. Product functionality is not yet implemented; keep infrastructure work separate from future feature work.
+Spring Config Contract is an early-stage developer tool that verifies whether configuration required by a Spring Boot application matches configuration supplied by deployment environments. The v0.1 workflow is implemented but the Gradle plugin is not yet published; keep infrastructure work separate from future feature work.
 
 ## Repository map
 
@@ -11,7 +11,7 @@ Spring Config Contract is an early-stage developer tool intended to verify wheth
 - `config-contract-deployment`: deployment-format parsers and adapters.
 - `config-contract-gradle-plugin`: Gradle orchestration and integration.
 - `config-contract-test`: reusable test fixtures and utilities only.
-- `samples`: future example applications; not a production module.
+- `samples`: executable end-to-end example applications; not a production module.
 - `docs`: canonical engineering policies and architecture decisions.
 
 Read the relevant module `AGENTS.md` before changing that module.

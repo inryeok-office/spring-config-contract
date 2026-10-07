@@ -1,6 +1,6 @@
 # Architecture
 
-Spring Config Contract is a dependency-directed multi-module Gradle project. The current implementation is scaffolding only; the boundaries below describe ownership for future work.
+Spring Config Contract is a dependency-directed multi-module Gradle project. The v0.1 implementation follows the ownership boundaries below; they also govern future work.
 
 ```text
                  +--------------------------+
