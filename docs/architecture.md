@@ -38,3 +38,7 @@ Spring Config Contract is a dependency-directed multi-module Gradle project. The
 Core is the ownership center. Spring and deployment depend inward on core. The Gradle plugin may compose the integration modules. Core must never depend outward on Spring, deployment formats, or Gradle. Deployment-specific concepts must not leak into core models, and Gradle APIs must not leak into core or domain APIs.
 
 New edges require an explicit architectural review and, when durable, an ADR. See the scoped `AGENTS.md` files for change-level rules.
+
+Binary publication preserves these edges. The marker, implementation, runtime-module coordinates, and external
+resolution path are defined in the [publication readiness guide](publication.md) and
+[ADR-0003](decisions/0003-plugin-portal-and-maven-central-publication.md).
