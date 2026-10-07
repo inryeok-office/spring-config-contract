@@ -11,7 +11,7 @@ Spring Config Contract is an early-stage developer tool that verifies whether co
 - `config-contract-deployment`: deployment-format parsers and adapters.
 - `config-contract-gradle-plugin`: Gradle orchestration and integration.
 - `config-contract-test`: reusable test fixtures and utilities only.
-- `samples`: executable end-to-end example applications; not a production module.
+- `samples`: end-to-end sample projects used as offline TestKit inputs; not standalone applications and not a production module.
 - `docs`: canonical engineering policies and architecture decisions.
 
 Read the relevant module `AGENTS.md` before changing that module.

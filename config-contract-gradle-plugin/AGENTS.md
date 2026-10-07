@@ -13,7 +13,7 @@ Own Gradle plugin IDs, extensions, task wiring, input/output integration, and co
 
 ## Tests and common mistakes
 
-Use Gradle TestKit for meaningful plugin behavior once implemented, including task outcomes and representative sample builds. Do not hide domain logic in task actions, rely on local Gradle state, or make network access part of tests.
+Use Gradle TestKit for meaningful plugin behavior, including task outcomes and representative sample builds. Do not hide domain logic in task actions, rely on local Gradle state, or make network access part of tests.
 
 ## Definition of done
 

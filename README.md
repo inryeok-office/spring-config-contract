@@ -16,22 +16,22 @@ For supported inputs, the v0.1 workflow reports required keys that deployment om
 
 ## Status
 
-**Early development.** The v0.1 `configContractCheck` Gradle task is implemented and under release-candidate review, but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. The release scope is tracked in the [v0.1.0 milestone](https://github.com/inryeok-office/spring-config-contract/milestone/1).
+**Early development.** The v0.1 `configContractCheck` Gradle task is implemented but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. The release scope is tracked in the [v0.1.0 milestone](https://github.com/inryeok-office/spring-config-contract/milestone/1).
 
-Follow the [v0.1.0 release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26) for scope status.
+Follow the [v0.1.0 release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26) for scope status. Compatibility claims are defined in the [compatibility guide](docs/compatibility.md).
 
 ## v0.1.0 scope
 
 The first release implements:
 
-- Spring-side inputs: supported `@ConfigurationProperties`, `@Value`, and application configuration cases, built and tested against Spring Boot 3.5.x.
+- Spring-side inputs: supported `@ConfigurationProperties`, `@Value`, and application configuration cases on the [tested Spring Boot line](docs/compatibility.md).
 - Deployment-side inputs: `.env.example` and Docker Compose.
 - Contract findings: missing and unused configuration, required/optional behavior, and default-value-aware comparison.
 - Developer integration: a Gradle integration with the `configContractCheck` task and CI-friendly results.
 
 The plugin is not published. It can be used from a source checkout as described in the [usage guide](docs/usage-guide.md).
 
-## How it is intended to work
+## How it works
 
 ```text
 Spring Boot

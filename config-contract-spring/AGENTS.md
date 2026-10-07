@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Own Spring-specific interpretation and extraction. Spring Boot 3.x is the initial target; this module adapts Spring semantics to the framework-independent core model.
+Own Spring-specific interpretation and extraction. The tested Spring Boot line is defined by [the compatibility guide](../docs/compatibility.md); this module adapts Spring semantics to the framework-independent core model.
 
 ## Boundaries
 

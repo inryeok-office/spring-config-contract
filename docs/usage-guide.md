@@ -231,5 +231,5 @@ Spring discovery:
 
 - [Architecture](architecture.md): module boundaries and dependency direction.
 - [Compatibility](compatibility.md): supported JDK, Gradle, and Spring Boot versions.
-- [Roadmap](roadmap.md): what is planned for v0.1.0 and later.
+- [Roadmap](roadmap.md): implemented v0.1 scope and planned post-v0.1 work.
 - [Samples](../samples/README.md): the end-to-end scenarios and why they are not standalone.
