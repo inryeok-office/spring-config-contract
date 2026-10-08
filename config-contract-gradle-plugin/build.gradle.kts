@@ -1,8 +1,12 @@
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.plugin.compatibility.compatibility
 import org.gradle.process.CommandLineArgumentProvider
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
     `java-gradle-plugin`
+    alias(libs.plugins.gradle.plugin.publish)
 }
 
 dependencies {
@@ -14,14 +18,55 @@ dependencies {
 }
 
 gradlePlugin {
+    website.set("https://github.com/inryeok-office/spring-config-contract")
+    vcsUrl.set("https://github.com/inryeok-office/spring-config-contract")
     plugins {
         create("configContract") {
             id = "io.github.inryeok-office.config-contract"
             implementationClass = "io.github.inryeokoffice.configcontract.gradle.ConfigContractPlugin"
             displayName = "Spring Config Contract"
             description = "Checks Spring Boot configuration requirements against deployment-provided configuration."
+            tags.set(listOf("spring", "spring-boot", "configuration", "verification"))
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
     }
+}
+
+val portalLikeRepository =
+    rootProject.providers
+        .gradleProperty("portalLikeRepository")
+        .orNull
+        ?.takeIf { it.isNotBlank() }
+        ?.let(rootProject::file)
+        ?: rootProject.layout.buildDirectory
+            .dir("publication-verification/portal")
+            .get()
+            .asFile
+
+extensions.configure<PublishingExtension> {
+    publications.withType<MavenPublication>().configureEach {
+        if (name == "pluginMaven") {
+            versionMapping {
+                usage("java-runtime") {
+                    fromResolutionOf("runtimeClasspath")
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "portalLike"
+            url = portalLikeRepository.toURI()
+        }
+    }
+}
+
+tasks.matching { it.name == "publishPlugins" }.configureEach {
+    dependsOn(rootProject.tasks.named("validateExternalPublicationRelease"))
 }
 
 // The Kotlin sample cannot be compiled inside a TestKit build: that would need the Kotlin Gradle plugin from the
@@ -45,17 +90,25 @@ dependencies {
 class SampleLocations(
     @get:Internal val samples: Provider<Directory>,
     @get:Internal val kotlinSampleClasses: FileCollection,
+    @get:Internal val rootProjectDirectory: Provider<Directory>,
 ) : CommandLineArgumentProvider {
     override fun asArguments(): Iterable<String> =
         listOf(
             "-DconfigContract.samplesDir=${samples.get().asFile.absolutePath}",
             "-DconfigContract.kotlinSampleClassesDirs=" +
                 kotlinSampleClasses.files.joinToString(File.pathSeparator) { it.absolutePath },
+            "-DconfigContract.rootProjectDir=${rootProjectDirectory.get().asFile.absolutePath}",
         )
 }
 
 tasks.test {
     val samples = rootProject.layout.projectDirectory.dir("samples")
+    systemProperty(
+        "configContract.springBootVersion",
+        libs.versions.spring.boot
+            .get(),
+    )
+    systemProperty("configContract.kotlinVersion", libs.versions.kotlin.get())
     dependsOn(kotlinSample.classesTaskName)
     inputs
         .dir(samples)
@@ -65,5 +118,11 @@ tasks.test {
         .files(kotlinSample.output.classesDirs)
         .withNormalizer(ClasspathNormalizer::class)
         .withPropertyName("kotlinSampleClasses")
-    jvmArgumentProviders.add(SampleLocations(provider { samples }, kotlinSample.output.classesDirs))
+    jvmArgumentProviders.add(
+        SampleLocations(
+            provider { samples },
+            kotlinSample.output.classesDirs,
+            rootProject.provider { rootProject.layout.projectDirectory },
+        ),
+    )
 }

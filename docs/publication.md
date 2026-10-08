@@ -1,10 +1,9 @@
 # Publication readiness
 
 Spring Config Contract is not published. The current supported workflow uses a source checkout and
-`pluginManagement.includeBuild`, as described in the [usage guide](usage-guide.md). This document defines the future
-publication contract; none of the coordinates below are available to consumers until the implementation in
-[Issue #55](https://github.com/inryeok-office/spring-config-contract/issues/55) is completed and a release is explicitly
-approved.
+`pluginManagement.includeBuild`, as described in the [usage guide](usage-guide.md). The credential-free publication
+pipeline is implemented, but none of the coordinates below are available to consumers until a maintainer explicitly
+approves and performs a release.
 
 The publication topology is an architectural decision recorded in
 [ADR-0003](decisions/0003-plugin-portal-and-maven-central-publication.md).
@@ -61,8 +60,8 @@ The implementation artifact uses the existing root group and Gradle project name
 Gradle's `plugin.id:plugin.id.gradle.plugin:plugin.version` convention and is generated from the existing plugin
 declaration.
 
-The root build remains the single version source. Issue #55 must make it read a dedicated `releaseVersion` Gradle
-property, defaulting to `0.1.0-SNAPSHOT` for development. Local publication fixtures pass an explicit test version;
+The root build remains the single version source. It reads a dedicated `releaseVersion` Gradle property, defaulting to
+`0.1.0-SNAPSHOT` for development. Local publication fixtures pass an explicit test version;
 external publication tasks require `-PreleaseVersion=<version>` and reject blank or `-SNAPSHOT` values. Passing
 `-Pversion` is not the contract because the current root build assignment overrides it. For the 0.x line, patch
 versions contain compatible fixes and minor versions may change public APIs according to the
@@ -88,12 +87,10 @@ The future Portal publication uses these concrete values:
 | Tags | `spring`, `spring-boot`, `configuration`, `verification` |
 | Gradle feature compatibility | Configuration Cache supported |
 
-The ID, display name, description, and implementation class already exist in the `gradlePlugin` declaration. Issue
-#55 adds the website, VCS URL, tags, feature compatibility, and publication tooling. Configuration Cache support is
-backed by `ConfigContractPluginFunctionalTest`, which runs the task twice and asserts cache reuse. The implementation
-must use a pinned version of
-`com.gradle.plugin-publish` compatible with the checked-in Gradle Wrapper; version 2.2.1 is the current candidate for
-Gradle 9.8.0 and must be rechecked when the implementation is reviewed. The
+The `gradlePlugin` declaration configures the ID, display name, description, website, VCS URL, tags, feature
+compatibility, and publication tooling. Configuration Cache support is backed by
+`ConfigContractPluginFunctionalTest`, which runs the task twice and asserts cache reuse. The implementation pins
+`com.gradle.plugin-publish` 2.2.1 for the checked-in Gradle 9.8.0 Wrapper; the
 [official Plugin Portal guide](https://plugins.gradle.org/docs/publish-plugin) is the source of truth for its required
 metadata and tasks.
 
@@ -116,8 +113,8 @@ config-contract-gradle-plugin
 
 Kotlin standard-library and Spring Boot transitive dependencies are also present and are already available from Maven
 Central. The plugin directly uses all three project modules, so all three direct edges must remain in the plugin
-implementation metadata. Spring and deployment expose core types in public signatures, so Issue #55 must change their
-core project dependency from `implementation` to `api`; their POM and `apiElements` metadata must allow an external
+implementation metadata. Spring and deployment expose core types in public signatures, so their core project dependency
+is `api`; their POM and `apiElements` metadata allow an external
 consumer to compile those signatures. No project dependency may remain as an unresolved local-project reference.
 
 Publishing these modules at stable Central coordinates makes their non-`internal` types public API under the
@@ -142,19 +139,18 @@ Gradle consumers retain variant information while Maven-compatible tooling can s
 The metadata-based model places Spring, Kotlin, and parser dependencies on the consumer's plugin/buildscript
 classpath. `ConfigContractCheckTask` also uses a parent-first application class loader. Gradle may therefore resolve
 versions shared with other applied plugins before discovery runs. v0.1 claims only the versions in the compatibility
-guide, and Issue #55 must apply this plugin alongside the matching Spring Boot and Kotlin Gradle plugins in an isolated
-consumer test. Broader combinations are not claimed. Worker/process isolation or dependency relocation is deferred;
+guide, and the isolated consumer test applies this plugin alongside the matching Spring Boot and Kotlin Gradle plugins.
+Broader combinations are not claimed. Worker/process isolation or dependency relocation is deferred;
 if the tested combination conflicts, external publication is blocked and isolation requires a separate design change.
 
 ## Publication metadata and tooling
 
-Issue #55 must add publication mechanics without changing product behavior:
+The publication pipeline adds the following mechanics without changing product behavior:
 
 - Apply `maven-publish` to the three Central-bound runtime modules and publish their Java components, source artifacts,
   Dokka-generated API documentation artifacts, Maven POMs, and Gradle Module Metadata. The implementation must use the
   dependency-reviewed Dokka v2 Gradle plugin and package its HTML output as the `javadoc` classifier instead of
-  publishing an empty Javadoc JAR; version 2.2.0 is the current candidate and must be rechecked under the dependency
-  policy.
+  publishing an empty Javadoc JAR. Dokka 2.2.0 is pinned under the dependency policy.
 - Publish the core edge from spring and deployment as `api`, matching their public signatures.
 - Apply `signing` to every Central-bound artifact and metadata file only when signing inputs are present. Release jobs
   use protected secrets; credential-free CI generates an ephemeral throwaway key in a temporary directory, signs the
@@ -191,8 +187,9 @@ All three POMs use `inryeok-office` as the organization-level developer ID and n
 `scm:git:https://github.com/inryeok-office/spring-config-contract.git` for the connection. No personal email is
 required or invented.
 
-The implementation must follow the current [Maven Central requirements](https://central.sonatype.org/publish/requirements/)
-for signatures, source/documentation artifacts, and POM metadata.
+The implemented pipeline follows the current [Maven Central requirements](https://central.sonatype.org/publish/requirements/)
+for signatures, source/documentation artifacts, and POM metadata; maintainers must recheck them before an external
+release.
 
 ## Credentials and trust boundary
 
@@ -206,6 +203,28 @@ allowed only from a maintainer-approved CI environment. Expected secret categori
 They must be scoped CI secrets rather than repository files, command-line output, checked-in `gradle.properties`, or
 long-lived workspace files. Logs must not print secret values. Pull-request workflows must never receive publishing
 secrets, and the release environment must require human approval.
+
+## Implemented local and remote-preflight boundaries
+
+`preparePublicationVerification` creates disposable Central-like, Portal-like, and third-party Maven repositories.
+`PublicationPipelineFunctionalTest` runs that task with a non-SNAPSHOT test version, verifies generated POM and Gradle
+Module Metadata, signs every Central-like JAR/POM/module with a generated ephemeral key, and resolves isolated offline
+consumers without `includeBuild`, `mavenLocal()`, or a source-tree classpath. One consumer proves the deterministic
+passing and failing `configContractCheck` paths; another applies the supported Spring Boot and Kotlin Gradle plugins
+beside Spring Config Contract and executes the task.
+
+External publication remains opt-in. `validateExternalPublicationRelease` rejects a missing, blank, or `-SNAPSHOT`
+`releaseVersion`. `validateRemotePublicationPreflightInputs` additionally requires
+`-PallowRemotePreflight=true` and protected Central/signing inputs, but deliberately makes no network request. It is
+the safe hand-off before a maintainer performs the documented user-managed Central validation deployment. The plugin
+project exposes the Plugin Portal's supported manual validation path:
+
+```text
+./gradlew :config-contract-gradle-plugin:publishPlugins --validate-only -PreleaseVersion=<release-version>
+```
+
+That command is never run by pull-request CI and requires protected Portal credentials. A successful Central validation
+deployment must still be stopped before release until separate human approval is given.
 
 ## Release sequence and failure recovery
 

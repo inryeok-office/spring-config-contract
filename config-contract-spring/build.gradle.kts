@@ -1,5 +1,5 @@
 dependencies {
-    implementation(project(":config-contract-core"))
+    api(project(":config-contract-core"))
 
     // Discovery delegates binding rules to Spring Boot's public APIs; see ADR 0002.
     implementation(libs.spring.boot.core)
