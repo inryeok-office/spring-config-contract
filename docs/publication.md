@@ -23,7 +23,12 @@ be insufficient: the marker points to the implementation artifact, whose runtime
 modules. Those modules must exist at stable external coordinates.
 
 Consumers resolving plugins use the repositories in `pluginManagement.repositories`, not the repositories used for
-ordinary project dependencies. The supported future repository model therefore includes both repositories:
+ordinary project dependencies. For a standard public consumer, the intended path is the Gradle default: no explicit
+`pluginManagement.repositories` block and resolution through the Plugin Portal. That path cannot be fully exercised
+until a version is visible on the Portal, so every external release requires a clean post-publication smoke test.
+
+Repository mirrors and local publication fixtures must expose both the Plugin Portal and Maven Central to plugin
+resolution:
 
 ```kotlin
 pluginManagement {
@@ -34,10 +39,10 @@ pluginManagement {
 }
 ```
 
-This declaration is especially important for repository mirrors: the Plugin Portal's
+The explicit declaration is especially important for repository mirrors: the Plugin Portal's
 [mirroring guidance](https://plugins.gradle.org/docs/mirroring) explicitly recommends making Maven Central available
-when plugins depend on libraries published there. The implementation must test the two-repository model rather than
-assuming that a Portal mirror proxies Central.
+when plugins depend on libraries published there. Validation must cover both the default public path and the explicit
+two-repository mirror model rather than assuming that a Portal mirror proxies Central.
 
 ## Coordinates and versions
 
@@ -56,13 +61,18 @@ The implementation artifact uses the existing root group and Gradle project name
 Gradle's `plugin.id:plugin.id.gradle.plugin:plugin.version` convention and is generated from the existing plugin
 declaration.
 
-The root build remains the single version source. Development builds use a `-SNAPSHOT` version; an approved release
-supplies one validated, non-snapshot version to every project. For the 0.x line, patch versions contain compatible
-fixes and minor versions may change public APIs according to the [public API policy](public-api-policy.md). A release
-must never mix plugin and runtime-module versions.
+The root build remains the single version source. Issue #55 must make it read a dedicated `releaseVersion` Gradle
+property, defaulting to `0.1.0-SNAPSHOT` for development. Local publication fixtures pass an explicit test version;
+external publication tasks require `-PreleaseVersion=<version>` and reject blank or `-SNAPSHOT` values. Passing
+`-Pversion` is not the contract because the current root build assignment overrides it. For the 0.x line, patch
+versions contain compatible fixes and minor versions may change public APIs according to the
+[public API policy](public-api-policy.md). A release must never mix plugin and runtime-module versions.
 
-Before Maven Central publication, maintainers must verify control of the `io.github.inryeok-office` namespace. A
-namespace verification failure blocks publication; it does not justify silently choosing different coordinates.
+Before any irreversible release, maintainers must verify control of the `io.github.inryeok-office` Maven Central
+namespace and verify that the Plugin Portal account behind `GRADLE_PUBLISH_KEY` can establish ownership of the
+`inryeok-office` GitHub organization. A first Portal publication and a later group or plugin ID change require manual
+Portal review. Failure of either ownership prerequisite blocks publication; it does not justify silently choosing
+different coordinates.
 
 ## Plugin Portal metadata
 
@@ -106,8 +116,13 @@ config-contract-gradle-plugin
 
 Kotlin standard-library and Spring Boot transitive dependencies are also present and are already available from Maven
 Central. The plugin directly uses all three project modules, so all three direct edges must remain in the plugin
-implementation metadata. Spring and deployment must each publish their edge to core. No project dependency may remain
-as an unresolved local-project reference.
+implementation metadata. Spring and deployment expose core types in public signatures, so Issue #55 must change their
+core project dependency from `implementation` to `api`; their POM and `apiElements` metadata must allow an external
+consumer to compile those signatures. No project dependency may remain as an unresolved local-project reference.
+
+Publishing these modules at stable Central coordinates makes their non-`internal` types public API under the
+[public API policy](public-api-policy.md). They remain supporting components of the Gradle plugin rather than separate
+v0.1 user entry points, but publication metadata must still describe their existing API accurately.
 
 Future consumer resolution is:
 
@@ -124,20 +139,30 @@ Gradle Module Metadata and Maven POMs must agree on the group, artifact, aligned
 Gradle publishes Module Metadata alongside Maven metadata when `maven-publish` is used; both formats are required so
 Gradle consumers retain variant information while Maven-compatible tooling can still inspect the dependency graph.
 
+The metadata-based model places Spring, Kotlin, and parser dependencies on the consumer's plugin/buildscript
+classpath. `ConfigContractCheckTask` also uses a parent-first application class loader. Gradle may therefore resolve
+versions shared with other applied plugins before discovery runs. v0.1 claims only the versions in the compatibility
+guide, and Issue #55 must apply this plugin alongside the matching Spring Boot and Kotlin Gradle plugins in an isolated
+consumer test. Broader combinations are not claimed. Worker/process isolation or dependency relocation is deferred;
+if the tested combination conflicts, external publication is blocked and isolation requires a separate design change.
+
 ## Publication metadata and tooling
 
 Issue #55 must add publication mechanics without changing product behavior:
 
 - Apply `maven-publish` to the three Central-bound runtime modules and publish their Java components, source artifacts,
-  documentation artifacts, Maven POMs, and Gradle Module Metadata.
-- Apply `signing` to every Central-bound artifact and metadata file. Signing material must be provided only at the
-  release boundary.
+  Dokka-generated API documentation artifacts, Maven POMs, and Gradle Module Metadata. The implementation must use the
+  dependency-reviewed Dokka v2 Gradle plugin and package its HTML output as the `javadoc` classifier instead of
+  publishing an empty Javadoc JAR; version 2.2.0 is the current candidate and must be rechecked under the dependency
+  policy.
+- Publish the core edge from spring and deployment as `api`, matching their public signatures.
+- Apply `signing` to every Central-bound artifact and metadata file only when signing inputs are present. Release jobs
+  use protected secrets; credential-free CI generates an ephemeral throwaway key in a temporary directory, signs the
+  local publications, verifies every `.asc`, and then removes the key material.
 - Keep `java-gradle-plugin` for descriptors and marker generation, and apply `com.gradle.plugin-publish` to the plugin
   project for Portal publication.
 - Use a dependency-reviewed client for the Maven Central Publisher Portal. Gradle 9.8 documents that the legacy Maven
   deployment protocol is no longer accepted by Central, so `maven-publish` alone is not the remote upload mechanism.
-- Publish and verify the Central runtime modules before the Portal plugin version is approved, so a visible marker can
-  never point at unavailable runtime artifacts.
 
 Switching modules to `java-library`, shading dependencies into the plugin, or publishing a new platform/BOM is not
 required for the current dependency model and is outside the implementation scope unless separate evidence justifies
@@ -149,7 +174,7 @@ Every Central POM must include:
 - project URL `https://github.com/inryeok-office/spring-config-contract`;
 - Apache License 2.0 name and URL;
 - SCM browse URL and Git connection for this repository;
-- organization-level contributor metadata for `inryeok-office`, without an invented personal email;
+- organization-level developer metadata for `inryeok-office`, without an invented personal email;
 - the correct runtime dependency coordinates and aligned version.
 
 Use these module-specific values:
@@ -182,27 +207,56 @@ They must be scoped CI secrets rather than repository files, command-line output
 long-lived workspace files. Logs must not print secret values. Pull-request workflows must never receive publishing
 secrets, and the release environment must require human approval.
 
+## Release sequence and failure recovery
+
+Maven Central and the Plugin Portal do not provide one atomic transaction. A maintainer-approved release follows this
+order:
+
+1. Complete the credential-free validation ladder below and confirm both namespace/ownership prerequisites.
+2. Upload the signed Central bundle as a user-managed deployment, let Central validate it, and stop before release.
+3. Run `publishPlugins --validate-only` with the protected Portal credentials; this performs server-side validation
+   without uploading the plugin.
+4. After human approval, release the validated Central deployment and wait until every runtime module resolves from the
+   public repository.
+5. Publish the identical version to the Plugin Portal, wait for any required manual approval, and confirm visibility.
+6. Run the default and mirrored post-publication consumer smoke tests.
+
+If a failure before Central release cannot be corrected without changing artifacts or metadata, discard the staged
+deployment and rebuild the same version from the corrected commit. After Central release, published files are
+immutable: if the exact Portal publication cannot complete, do not overwrite or reuse that version. Record the orphaned
+Central modules, increment the patch version for the entire aligned set, and restart the full sequence.
+
 ## Validation ladder
 
 Publication implementation is not ready for an external release until all stages pass:
 
 1. Run `./gradlew check`, `./gradlew build`, and `git diff --check` with the checked-in Wrapper and JDK 21.
-2. Generate every POM, Gradle Module Metadata file, plugin descriptor, and marker locally without contacting a remote
-   publication endpoint.
-3. Publish core, spring, and deployment to a temporary Central-like Maven repository, and publish the marker and plugin
-   implementation to a separate temporary Portal-like Maven repository.
+2. Generate every POM, Gradle Module Metadata file, Dokka artifact, plugin descriptor, and marker locally without
+   contacting a remote publication endpoint.
+3. Publish core, spring, and deployment to a temporary Central-like Maven repository, publish the marker and plugin
+   implementation to a separate temporary Portal-like Maven repository, and seed a third read-only repository with the
+   already-resolved third-party runtime graph and its Maven/Gradle metadata.
 4. Create a fresh consumer fixture outside the repository build. It must not use `includeBuild`, a project dependency,
    `mavenLocal()`, or a repository-specific absolute path.
-5. Give the consumer only the two temporary repositories in `pluginManagement.repositories`; resolve and apply
-   `io.github.inryeok-office.config-contract` with an explicit test version.
+5. Give the consumer the two project-artifact repositories and the read-only third-party repository in
+   `pluginManagement.repositories`; run offline, resolve the explicit test version, and prove the complete third-party
+   dependency hop without a repository-local classpath.
 6. Verify task registration and run `configContractCheck` for a passing contract and a deterministic failing contract.
-7. Inspect the generated POMs, Module Metadata, marker dependency, checksums/signatures where applicable, coordinates,
-   versions, URLs, license, SCM, and the complete transitive dependency chain.
-8. Only after the credential-free ladder passes in CI may a separately approved workflow receive secrets and offer a
-   manually gated external publication action.
+   Repeat with the tested Spring Boot and Kotlin Gradle plugins applied in the consumer.
+7. Generate an ephemeral test signing key, exercise conditional signing, and cryptographically verify one `.asc` for
+   every Central-bound JAR, POM, and `.module` file. No key survives the test lifecycle.
+8. Inspect coordinates, aligned versions, `api` and runtime edges, URLs, license, developer and SCM metadata, marker
+   dependency, checksums, signatures, and the complete transitive dependency chain.
+9. Only after stages 1-8 pass may a protected environment perform Central validation and
+   `publishPlugins --validate-only` as the remote preflight.
+10. A separately approved release follows the sequence above. Once visible, a clean Gradle user home must resolve the
+    plugin with the default Portal-only configuration, and a second smoke test must exercise the explicit mirrored
+    Portal-plus-Central model.
 
-The local repositories and consumer must be created under disposable build or temporary directories and removed by
-the test lifecycle. Tests must work without a Docker daemon, mutable host configuration, or developer-specific paths.
+The local repositories, third-party mirror, consumer, and signing home must be created under disposable build or
+temporary directories and removed by the test lifecycle. Stages 1-8 run offline after the repository build has resolved
+its declared dependencies; they must not require a Docker daemon, mutable host configuration, or developer-specific
+paths.
 
 ## Implementation boundary
 
@@ -217,4 +271,5 @@ Release remain separate maintainer actions. Completing that Issue must not by it
 - [Gradle Plugin Portal mirroring](https://plugins.gradle.org/docs/mirroring)
 - [Maven Publish Plugin](https://docs.gradle.org/current/userguide/publishing_maven.html)
 - [Gradle Module Metadata](https://docs.gradle.org/current/userguide/publishing_gradle_module_metadata.html)
+- [Dokka Gradle plugin](https://kotlinlang.org/docs/dokka-gradle.html)
 - [Maven Central publication requirements](https://central.sonatype.org/publish/requirements/)
