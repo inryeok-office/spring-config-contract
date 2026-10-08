@@ -14,7 +14,7 @@ The first usable release establishes the following end-to-end contract workflow:
 - End-to-end sample fixtures covering missing, unused, optional, and default-aware cases.
 - A public Quick Start, usage guidance, limitations, and release-readiness review.
 
-The detailed work is tracked in the [v0.1.0 milestone](https://github.com/inryeok-office/spring-config-contract/milestone/1), [release tracker Issue #26](https://github.com/inryeok-office/spring-config-contract/issues/26), and [release-readiness record Issue #25](https://github.com/inryeok-office/spring-config-contract/issues/25). Publishing remains a separate maintainer decision.
+The completed scope is recorded in the [v0.1.0 milestone](https://github.com/inryeok-office/spring-config-contract/milestone/1), [release tracker Issue #26](https://github.com/inryeok-office/spring-config-contract/issues/26), and [release-readiness record Issue #25](https://github.com/inryeok-office/spring-config-contract/issues/25). The [publication readiness guide](publication.md) defines the future artifact topology; implementation is tracked separately in [Issue #55](https://github.com/inryeok-office/spring-config-contract/issues/55), and publishing remains a maintainer decision.
 
 ## Post-v0.1
 

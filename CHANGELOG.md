@@ -14,4 +14,4 @@ All notable changes to this project will be documented here.
 - Added offline end-to-end samples for valid, missing, unused, optional/default, and Kotlin binding scenarios.
 - Built and tested Spring discovery against Spring Boot 3.5.x on JDK 21; see [compatibility](docs/compatibility.md). Other Spring Boot lines are not claimed.
 - Known limitations include treating every Compose service environment as application-provided, skipping nested/collection/map `@ConfigurationProperties`, and requiring CI to invoke `configContractCheck` explicitly.
-- The plugin is not published. Publication readiness is tracked by [Issue #54](https://github.com/inryeok-office/spring-config-contract/issues/54), and this draft does not announce a release.
+- The plugin is not published. The future artifact topology and validation boundary are documented in the [publication readiness guide](docs/publication.md), implementation is tracked by [Issue #55](https://github.com/inryeok-office/spring-config-contract/issues/55), and this draft does not announce a release.

@@ -16,9 +16,9 @@ For supported inputs, the v0.1 workflow reports required keys that deployment om
 
 ## Status
 
-**Early development.** The v0.1 `configContractCheck` Gradle task is implemented but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. The release scope is tracked in the [v0.1.0 milestone](https://github.com/inryeok-office/spring-config-contract/milestone/1).
+**Early development.** The v0.1 `configContractCheck` Gradle task is implemented but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. The future artifact topology and validation boundary are defined in the [publication readiness guide](docs/publication.md).
 
-Follow the [v0.1.0 release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26) for scope status. Compatibility claims are defined in the [compatibility guide](docs/compatibility.md).
+The completed v0.1.0 scope is recorded in the [release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26). Compatibility claims are defined in the [compatibility guide](docs/compatibility.md).
 
 ## v0.1.0 scope
 
