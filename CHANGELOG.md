@@ -15,3 +15,6 @@ All notable changes to this project will be documented here.
 - Built and tested Spring discovery against Spring Boot 3.5.x on JDK 21; see [compatibility](docs/compatibility.md). Other Spring Boot lines are not claimed.
 - Known limitations include treating every Compose service environment as application-provided, skipping nested/collection/map `@ConfigurationProperties`, and requiring CI to invoke `configContractCheck` explicitly.
 - The plugin is not published. The future artifact topology and validation boundary are documented in the [publication readiness guide](docs/publication.md), implementation is tracked by [Issue #55](https://github.com/inryeok-office/spring-config-contract/issues/55), and this draft does not announce a release.
+- Added a credential-free local publication pipeline that validates Maven/Gradle metadata, Dokka and source artifacts,
+  conditional ephemeral signing, and offline consumer resolution through separate Central-like, Portal-like, and
+  third-party repositories. This does not publish any production artifact.

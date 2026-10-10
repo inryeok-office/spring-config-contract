@@ -1,4 +1,4 @@
 dependencies {
-    implementation(project(":config-contract-core"))
+    api(project(":config-contract-core"))
     implementation(libs.snakeyaml.engine)
 }
