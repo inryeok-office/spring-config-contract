@@ -13,6 +13,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
+import java.util.Properties
 import javax.xml.parsers.DocumentBuilderFactory
 
 class PublicationPipelineFunctionalTest {
@@ -289,6 +290,7 @@ $repositories
         vararg arguments: String,
     ): BuildExecution {
         val execution = executeConsumer(project, *arguments)
+        assertFalse(execution.output.contains("Downloading "), execution.output)
         assertTrue(execution.exitCode == 0, execution.output)
         return execution
     }
@@ -298,6 +300,7 @@ $repositories
         vararg arguments: String,
     ): BuildExecution {
         val execution = executeConsumer(project, *arguments)
+        assertFalse(execution.output.contains("Downloading "), execution.output)
         assertTrue(execution.exitCode != 0, "Expected the consumer build to fail.\n${execution.output}")
         return execution
     }
@@ -308,6 +311,7 @@ $repositories
     ): BuildExecution {
         val gradleUserHome = Files.createTempDirectory("scc-gradle-user-home-${project.name}-").toFile()
         return try {
+            seedWrapperDistribution(gradleUserHome)
             executeGradle(
                 rootProject,
                 project,
@@ -323,6 +327,49 @@ $repositories
         } finally {
             gradleUserHome.deleteRecursively()
         }
+    }
+
+    private fun seedWrapperDistribution(gradleUserHome: File) {
+        val distributionName =
+            Properties()
+                .also { properties ->
+                    rootProject.resolve("gradle/wrapper/gradle-wrapper.properties").inputStream().use(properties::load)
+                }.getProperty("distributionUrl")
+                .substringAfterLast('/')
+                .removeSuffix(".zip")
+        val source =
+            File(System.getenv("GRADLE_USER_HOME") ?: File(System.getProperty("user.home"), ".gradle").path)
+                .toPath()
+                .resolve("wrapper/dists")
+                .resolve(distributionName)
+        check(Files.isDirectory(source)) { "Missing checked-in Wrapper distribution: $source" }
+        copyDirectory(source, gradleUserHome.toPath().resolve("wrapper/dists").resolve(distributionName))
+    }
+
+    private fun copyDirectory(
+        source: Path,
+        destination: Path,
+    ) {
+        Files.walkFileTree(
+            source,
+            object : SimpleFileVisitor<Path>() {
+                override fun preVisitDirectory(
+                    directory: Path,
+                    attributes: BasicFileAttributes,
+                ): FileVisitResult {
+                    Files.createDirectories(destination.resolve(source.relativize(directory).toString()))
+                    return FileVisitResult.CONTINUE
+                }
+
+                override fun visitFile(
+                    file: Path,
+                    attributes: BasicFileAttributes,
+                ): FileVisitResult {
+                    Files.copy(file, destination.resolve(source.relativize(file).toString()))
+                    return FileVisitResult.CONTINUE
+                }
+            },
+        )
     }
 
     private fun executeGradle(
