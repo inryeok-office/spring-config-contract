@@ -20,6 +20,11 @@ class PublicationPipelineFunctionalTest {
     lateinit var workspace: File
 
     @Test
+    fun shellQuotePreservesApostrophesForBash() {
+        assertEquals("'C:/Users/o'\\''brien/scc-gpg'", shellQuote("C:/Users/o'brien/scc-gpg"))
+    }
+
+    @Test
     fun `publishes signed artifacts and resolves an offline external consumer`() {
         val central = workspace.resolve("central")
         val portal = workspace.resolve("portal")
@@ -440,7 +445,7 @@ $repositories
     private fun posixPath(path: Path): String =
         path.toString().replace(Regex("^([A-Za-z]):")) { "/${it.groupValues[1].lowercase()}" }.replace('\\', '/')
 
-    private fun shellQuote(value: String): String = "'${value.replace("'", "'\\\"'\\\"'")}'"
+    private fun shellQuote(value: String): String = "'${value.replace("'", "'\\''")}'"
 
     private enum class ConsumerKind {
         MINIMAL,

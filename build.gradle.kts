@@ -69,6 +69,10 @@ abstract class VerifyRepositoryRulesTask : DefaultTask() {
  */
 @DisableCachingByDefault(because = "The disposable repository is rebuilt from the resolved runtime graph.")
 abstract class SeedThirdPartyRuntimeRepositoryTask : DefaultTask() {
+    init {
+        outputs.upToDateWhen { false }
+    }
+
     @get:OutputDirectory
     abstract val repositoryDirectory: DirectoryProperty
 
@@ -82,6 +86,9 @@ abstract class SeedThirdPartyRuntimeRepositoryTask : DefaultTask() {
     @TaskAction
     fun seed() {
         val repository = repositoryDirectory.get().asFile
+        if (repository.exists() && !repository.deleteRecursively()) {
+            throw GradleException("Could not clear third-party publication repository: $repository")
+        }
         if (!repository.mkdirs() && !repository.isDirectory) {
             throw GradleException("Could not create third-party publication repository: $repository")
         }
