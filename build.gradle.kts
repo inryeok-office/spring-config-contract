@@ -427,7 +427,7 @@ configure(publicationDescriptions.keys.map { project(it) }) {
 val validateExternalPublicationRelease = tasks.register<ValidateExternalPublicationReleaseTask>("validateExternalPublicationRelease") {
     group = "publishing"
     description = "Rejects blank and snapshot release versions before any external publication operation."
-    explicitReleaseVersion.set(providers.gradleProperty("releaseVersion"))
+    explicitReleaseVersion.set(providers.gradleProperty("releaseVersion").orElse(""))
 }
 
 val validateRemotePublicationPreflightInputs =

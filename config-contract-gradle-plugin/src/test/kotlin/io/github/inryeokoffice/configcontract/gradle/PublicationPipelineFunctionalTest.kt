@@ -136,6 +136,29 @@ class PublicationPipelineFunctionalTest {
         assertFalse(result.output.contains("cannot serialize Gradle script object references"), result.output)
     }
 
+    @Test
+    fun `external publication validation reports a missing release version`() {
+        val producer = workspace.resolve("producer")
+        copyProducer(producer)
+
+        val result =
+            runProducerWithConfigurationCache(
+                producer,
+                "validateExternalPublicationRelease",
+                environment = environmentWithoutProductionCredentials(),
+            )
+
+        assertTrue(result.exitCode != 0, result.output)
+        assertTrue(
+            result.output.contains(
+                "External publication requires a non-blank, non-SNAPSHOT -PreleaseVersion; " +
+                    "the development default 0.1.0-SNAPSHOT is not publishable.",
+            ),
+            result.output,
+        )
+        assertFalse(result.output.contains("Configuration cache problems"), result.output)
+    }
+
     private fun assertPublishedRuntimeMetadata(central: File) {
         RUNTIME_ARTIFACTS.forEach { artifact ->
             val moduleDirectory = central.resolve("io/github/inryeok-office/$artifact/$TEST_VERSION")
