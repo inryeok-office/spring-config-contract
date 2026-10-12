@@ -6,6 +6,7 @@ import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
@@ -21,6 +22,8 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.work.DisableCachingByDefault
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import java.io.File
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 
 abstract class VerifyRepositoryRulesTask : DefaultTask() {
     @get:InputFiles
@@ -76,8 +79,22 @@ abstract class SeedThirdPartyRuntimeRepositoryTask : DefaultTask() {
     @get:OutputDirectory
     abstract val repositoryDirectory: DirectoryProperty
 
-    @get:Internal
-    lateinit var runtimeConfiguration: Configuration
+    /**
+     * External artifacts required by the runtime graph. This is declared separately from the
+     * serializable graph description so Gradle can track the files without retaining a
+     * [Configuration] on the task.
+     */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val sourceArtifacts: ConfigurableFileCollection
+
+    /**
+     * Base64-encoded, resolved external module graph prepared during configuration. The task
+     * action only consumes strings and declared files; it never accesses the Gradle project or
+     * dependency configuration at execution time.
+     */
+    @get:Input
+    abstract val resolvedModules: ListProperty<String>
 
     /** Plugin marker coordinates and their implementation targets needed by the offline consumer fixture. */
     @get:org.gradle.api.tasks.Input
@@ -93,42 +110,27 @@ abstract class SeedThirdPartyRuntimeRepositoryTask : DefaultTask() {
             throw GradleException("Could not create third-party publication repository: $repository")
         }
 
-        val ownGroup = project.group.toString()
-        val components =
-            runtimeConfiguration.incoming.resolutionResult.allComponents
-                .associateBy { it.id }
-                .filterKeys { (it as? ModuleComponentIdentifier)?.group != ownGroup }
-        val artifactsByComponent =
-            runtimeConfiguration.incoming.artifacts.artifacts
-                .mapNotNull { artifact ->
-                    val id = artifact.id.componentIdentifier as? ModuleComponentIdentifier ?: return@mapNotNull null
-                    if (id.group == ownGroup) null else id to artifact.file
-                }.groupBy({ it.first }, { it.second })
+        val artifactsByPath = sourceArtifacts.files.associateBy { it.absoluteFile.normalize().path }
 
-        components.forEach { (componentId, component) ->
-            val id = componentId as? ModuleComponentIdentifier ?: return@forEach
+        resolvedModules.get().map(::decodeModule).forEach { module ->
             val moduleDirectory =
                 repository
-                    .resolve(id.group.replace('.', File.separatorChar))
-                    .resolve(id.module)
-                    .resolve(id.version)
+                    .resolve(module.group.replace('.', File.separatorChar))
+                    .resolve(module.name)
+                    .resolve(module.version)
             moduleDirectory.mkdirs()
-            val artifacts = artifactsByComponent[id].orEmpty().distinct()
+            val artifacts =
+                module.artifactPaths
+                    .map { path -> artifactsByPath[path] ?: error("Resolved artifact was not declared as an input: $path") }
+                    .distinct()
             artifacts.forEach { artifact ->
                 artifact.copyTo(moduleDirectory.resolve(artifact.name), overwrite = true)
-                if (artifact.extension == "jar" && artifact.name != "${id.module}-${id.version}.jar") {
-                    artifact.copyTo(moduleDirectory.resolve("${id.module}-${id.version}.jar"), overwrite = true)
+                if (artifact.extension == "jar" && artifact.name != "${module.name}-${module.version}.jar") {
+                    artifact.copyTo(moduleDirectory.resolve("${module.name}-${module.version}.jar"), overwrite = true)
                 }
             }
-            val dependencies =
-                component.dependencies
-                    .filterIsInstance<ResolvedDependencyResult>()
-                    .mapNotNull { it.selected.id as? ModuleComponentIdentifier }
-                    .filter { it.group != ownGroup }
-                    .distinct()
-                    .sortedWith(compareBy({ it.group }, { it.module }, { it.version }))
-            moduleDirectory.resolve("${id.module}-${id.version}.pom").writeText(
-                mavenPom(id, dependencies, hasArtifact = artifacts.isNotEmpty()),
+            moduleDirectory.resolve("${module.name}-${module.version}.pom").writeText(
+                mavenPom(module, hasArtifact = artifacts.isNotEmpty()),
                 Charsets.UTF_8,
             )
         }
@@ -162,27 +164,23 @@ abstract class SeedThirdPartyRuntimeRepositoryTask : DefaultTask() {
         }
     }
 
-    private fun mavenPom(
-        id: ModuleComponentIdentifier,
-        dependencies: List<ModuleComponentIdentifier>,
-        hasArtifact: Boolean,
-    ): String =
+    private fun mavenPom(module: ResolvedModule, hasArtifact: Boolean): String =
         buildString {
             appendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
             appendLine("<project xmlns=\"http://maven.apache.org/POM/4.0.0\">")
             appendLine("  <modelVersion>4.0.0</modelVersion>")
-            appendLine("  <groupId>${xml(id.group)}</groupId>")
-            appendLine("  <artifactId>${xml(id.module)}</artifactId>")
-            appendLine("  <version>${xml(id.version)}</version>")
+            appendLine("  <groupId>${xml(module.group)}</groupId>")
+            appendLine("  <artifactId>${xml(module.name)}</artifactId>")
+            appendLine("  <version>${xml(module.version)}</version>")
             if (!hasArtifact) {
                 appendLine("  <packaging>pom</packaging>")
             }
-            if (dependencies.isNotEmpty()) {
+            if (module.dependencies.isNotEmpty()) {
                 appendLine("  <dependencies>")
-                dependencies.forEach { dependency ->
+                module.dependencies.forEach { dependency ->
                     appendLine("    <dependency>")
                     appendLine("      <groupId>${xml(dependency.group)}</groupId>")
-                    appendLine("      <artifactId>${xml(dependency.module)}</artifactId>")
+                    appendLine("      <artifactId>${xml(dependency.name)}</artifactId>")
                     appendLine("      <version>${xml(dependency.version)}</version>")
                     appendLine("    </dependency>")
                 }
@@ -219,7 +217,100 @@ abstract class SeedThirdPartyRuntimeRepositoryTask : DefaultTask() {
 
     private fun xml(value: String): String =
         value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+
+    private fun decodeModule(encoded: String): ResolvedModule {
+        val fields = encoded.split('|')
+        require(fields.size == 5) { "Invalid resolved module declaration." }
+        return ResolvedModule(
+            group = decode(fields[0]),
+            name = decode(fields[1]),
+            version = decode(fields[2]),
+            dependencies = fields[3].takeIf(String::isNotEmpty)?.split(',')?.map(::decodeCoordinate).orEmpty(),
+            artifactPaths = fields[4].takeIf(String::isNotEmpty)?.split(',')?.map(::decode).orEmpty(),
+        )
+    }
+
+    private fun decodeCoordinate(encoded: String): ModuleCoordinate {
+        val fields = decode(encoded).split(':')
+        require(fields.size == 3) { "Invalid resolved dependency declaration." }
+        return ModuleCoordinate(fields[0], fields[1], fields[2])
+    }
+
+    private fun decode(value: String): String = String(Base64.getUrlDecoder().decode(value), StandardCharsets.UTF_8)
+
+    private data class ResolvedModule(
+        val group: String,
+        val name: String,
+        val version: String,
+        val dependencies: List<ModuleCoordinate>,
+        val artifactPaths: List<String>,
+    )
+
+    private data class ModuleCoordinate(
+        val group: String,
+        val name: String,
+        val version: String,
+    )
 }
+
+abstract class ValidateExternalPublicationReleaseTask : DefaultTask() {
+    @get:Input
+    abstract val explicitReleaseVersion: Property<String>
+
+    @TaskAction
+    fun validate() {
+        val version = explicitReleaseVersion.orNull?.trim()
+        check(!version.isNullOrEmpty() && !version.endsWith("-SNAPSHOT")) {
+            "External publication requires a non-blank, non-SNAPSHOT -PreleaseVersion; " +
+                "the development default 0.1.0-SNAPSHOT is not publishable."
+        }
+    }
+}
+
+abstract class ValidateRemotePublicationPreflightInputsTask : DefaultTask() {
+    @get:Input
+    abstract val remotePreflightEnabled: Property<Boolean>
+
+    @get:Input
+    abstract val requiredCredentialNames: ListProperty<String>
+
+    init {
+        outputs.upToDateWhen { false }
+    }
+
+    @TaskAction
+    fun validate() {
+        check(remotePreflightEnabled.get()) {
+            "Remote preflight is disabled by default; pass -PallowRemotePreflight=true from a protected environment."
+        }
+        val missing = requiredCredentialNames.get().filter { System.getenv(it).isNullOrBlank() }
+        check(missing.isEmpty()) {
+            "Remote Maven Central preflight requires protected CI secrets: ${missing.joinToString()}."
+        }
+        logger.lifecycle(
+            "Remote inputs are valid. This task intentionally performs no network request; " +
+                "a maintainer must run the documented user-managed Central deployment preflight separately.",
+        )
+    }
+}
+
+private fun encodeResolvedModule(
+    id: ModuleComponentIdentifier,
+    dependencies: List<ModuleComponentIdentifier>,
+    artifacts: List<File>,
+): String =
+    listOf(
+        encodePublicationValue(id.group),
+        encodePublicationValue(id.module),
+        encodePublicationValue(id.version),
+        dependencies.joinToString(",") { dependency ->
+            encodePublicationValue("${dependency.group}:${dependency.module}:${dependency.version}")
+        },
+        artifacts.joinToString(",") { artifact -> encodePublicationValue(artifact.absoluteFile.normalize().path) },
+    ).joinToString("|")
+
+private fun encodePublicationValue(value: String): String =
+    Base64.getUrlEncoder().encodeToString(value.toByteArray(StandardCharsets.UTF_8))
 
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
@@ -333,40 +424,22 @@ configure(publicationDescriptions.keys.map { project(it) }) {
     }
 }
 
-val validateExternalPublicationRelease = tasks.register("validateExternalPublicationRelease") {
+val validateExternalPublicationRelease = tasks.register<ValidateExternalPublicationReleaseTask>("validateExternalPublicationRelease") {
     group = "publishing"
     description = "Rejects blank and snapshot release versions before any external publication operation."
-    doLast {
-        val explicitVersion = providers.gradleProperty("releaseVersion").orNull?.trim()
-        if (explicitVersion.isNullOrEmpty() || explicitVersion.endsWith("-SNAPSHOT")) {
-            throw GradleException(
-                "External publication requires a non-blank, non-SNAPSHOT -PreleaseVersion; " +
-                    "the development default $developmentVersion is not publishable.",
-            )
-        }
-    }
+    explicitReleaseVersion.set(providers.gradleProperty("releaseVersion"))
 }
 
-val validateRemotePublicationPreflightInputs = tasks.register("validateRemotePublicationPreflightInputs") {
-    group = "publishing"
-    description = "Validates explicit, protected inputs for a manually authorized remote publication preflight."
-    dependsOn(validateExternalPublicationRelease)
-    doLast {
-        check(providers.gradleProperty("allowRemotePreflight").orNull == "true") {
-            "Remote preflight is disabled by default; pass -PallowRemotePreflight=true from a protected environment."
-        }
-        val missing =
-            listOf("MAVEN_CENTRAL_USERNAME", "MAVEN_CENTRAL_PASSWORD", "SIGNING_KEY", "SIGNING_PASSWORD")
-                .filter { providers.environmentVariable(it).orNull.isNullOrBlank() }
-        check(missing.isEmpty()) {
-            "Remote Maven Central preflight requires protected CI secrets: ${missing.joinToString()}."
-        }
-        logger.lifecycle(
-            "Remote inputs are valid. This task intentionally performs no network request; " +
-                "a maintainer must run the documented user-managed Central deployment preflight separately.",
+val validateRemotePublicationPreflightInputs =
+    tasks.register<ValidateRemotePublicationPreflightInputsTask>("validateRemotePublicationPreflightInputs") {
+        group = "publishing"
+        description = "Validates explicit, protected inputs for a manually authorized remote publication preflight."
+        dependsOn(validateExternalPublicationRelease)
+        remotePreflightEnabled.set(providers.gradleProperty("allowRemotePreflight").map { it == "true" }.orElse(false))
+        requiredCredentialNames.set(
+            listOf("MAVEN_CENTRAL_USERNAME", "MAVEN_CENTRAL_PASSWORD", "SIGNING_KEY", "SIGNING_PASSWORD"),
         )
     }
-}
 
 val verifyRepositoryRules = tasks.register<VerifyRepositoryRulesTask>("verifyRepositoryRules") {
     group = "verification"
@@ -448,7 +521,6 @@ dependencies {
 val seedThirdPartyRuntimeRepository = tasks.register<SeedThirdPartyRuntimeRepositoryTask>("seedThirdPartyRuntimeRepository") {
     group = "verification"
     description = "Copies the resolved third-party plugin runtime graph into a disposable Maven repository."
-    runtimeConfiguration = publicationVerificationRuntime
     repositoryDirectory.fileValue(thirdPartyRuntimeRepository)
     pluginMarkers.set(
         listOf(
@@ -457,6 +529,38 @@ val seedThirdPartyRuntimeRepository = tasks.register<SeedThirdPartyRuntimeReposi
             "org.jetbrains.kotlin.jvm:org.jetbrains.kotlin.jvm.gradle.plugin:${libs.versions.kotlin.get()}:" +
                 "org.jetbrains.kotlin:kotlin-gradle-plugin:${libs.versions.kotlin.get()}",
         ),
+    )
+
+    val ownGroup = group.toString()
+    val components =
+        publicationVerificationRuntime.incoming.resolutionResult.allComponents
+            .mapNotNull { component ->
+                val id = component.id as? ModuleComponentIdentifier ?: return@mapNotNull null
+                if (id.group == ownGroup) null else id to component
+            }
+    val artifactsByComponent =
+        publicationVerificationRuntime.incoming.artifacts.artifacts
+            .mapNotNull { artifact ->
+                val id = artifact.id.componentIdentifier as? ModuleComponentIdentifier ?: return@mapNotNull null
+                if (id.group == ownGroup) null else id to artifact.file.absoluteFile.normalize()
+            }.groupBy({ it.first }, { it.second })
+    sourceArtifacts.from(artifactsByComponent.values.flatten().distinct())
+    resolvedModules.set(
+        components
+            .sortedWith(compareBy({ it.first.group }, { it.first.module }, { it.first.version }))
+            .map { (id, component) ->
+                encodeResolvedModule(
+                    id = id,
+                    dependencies =
+                        component.dependencies
+                            .filterIsInstance<ResolvedDependencyResult>()
+                            .mapNotNull { it.selected.id as? ModuleComponentIdentifier }
+                            .filter { it.group != ownGroup }
+                            .distinct()
+                            .sortedWith(compareBy({ it.group }, { it.module }, { it.version })),
+                    artifacts = artifactsByComponent[id].orEmpty().distinct(),
+                )
+            },
     )
 }
 

@@ -80,6 +80,62 @@ class PublicationPipelineFunctionalTest {
         }
     }
 
+    @Test
+    fun `reuses configuration cache while rebuilding the disposable publication repositories`() {
+        val central = workspace.resolve("central")
+        val portal = workspace.resolve("portal")
+        val thirdParty = workspace.resolve("third-party")
+        val producer = workspace.resolve("producer")
+        copyProducer(producer)
+
+        val arguments =
+            arrayOf(
+                "preparePublicationVerification",
+                "-PreleaseVersion=$TEST_VERSION",
+                "-PcentralLikeRepository=${central.absolutePath}",
+                "-PportalLikeRepository=${portal.absolutePath}",
+                "-PthirdPartyRepository=${thirdParty.absolutePath}",
+            )
+        val environment = environmentWithoutProductionCredentials()
+
+        val first = runProducerWithConfigurationCache(producer, *arguments, environment = environment)
+        assertEquals(0, first.exitCode, first.output)
+        assertTrue(first.output.contains("Configuration cache entry stored."), first.output)
+
+        val second = runProducerWithConfigurationCache(producer, *arguments, environment = environment)
+        assertEquals(0, second.exitCode, second.output)
+        assertTrue(second.output.contains("Reusing configuration cache."), second.output)
+        assertTrue(second.output.contains(":seedThirdPartyRuntimeRepository"), second.output)
+        assertPublishedRuntimeMetadata(central)
+        assertPluginMetadata(portal)
+    }
+
+    @Test
+    fun `remote preflight reports only missing protected inputs without configuration cache problems`() {
+        val producer = workspace.resolve("producer")
+        copyProducer(producer)
+
+        val result =
+            runProducerWithConfigurationCache(
+                producer,
+                "validateRemotePublicationPreflightInputs",
+                "-PreleaseVersion=$TEST_VERSION",
+                "-PallowRemotePreflight=true",
+                environment = environmentWithoutProductionCredentials(),
+            )
+
+        assertTrue(result.exitCode != 0, result.output)
+        assertTrue(
+            result.output.contains(
+                "Remote Maven Central preflight requires protected CI secrets: " +
+                    "MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD, SIGNING_KEY, SIGNING_PASSWORD.",
+            ),
+            result.output,
+        )
+        assertFalse(result.output.contains("Configuration cache problems"), result.output)
+        assertFalse(result.output.contains("cannot serialize Gradle script object references"), result.output)
+    }
+
     private fun assertPublishedRuntimeMetadata(central: File) {
         RUNTIME_ARTIFACTS.forEach { artifact ->
             val moduleDirectory = central.resolve("io/github/inryeok-office/$artifact/$TEST_VERSION")
@@ -284,6 +340,23 @@ $repositories
         vararg arguments: String,
         environment: Map<String, String>,
     ): BuildExecution = executeGradle(producer, producer, environment, *arguments, "--stacktrace", "--no-configuration-cache")
+
+    private fun runProducerWithConfigurationCache(
+        producer: File,
+        vararg arguments: String,
+        environment: Map<String, String>,
+    ): BuildExecution = executeGradle(producer, producer, environment, *arguments, "--stacktrace")
+
+    private fun environmentWithoutProductionCredentials(): Map<String, String> =
+        System.getenv() -
+            setOf(
+                "MAVEN_CENTRAL_USERNAME",
+                "MAVEN_CENTRAL_PASSWORD",
+                "GRADLE_PUBLISH_KEY",
+                "GRADLE_PUBLISH_SECRET",
+                "SIGNING_KEY",
+                "SIGNING_PASSWORD",
+            )
 
     private fun runConsumer(
         project: File,
