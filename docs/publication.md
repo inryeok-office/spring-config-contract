@@ -204,6 +204,37 @@ They must be scoped CI secrets rather than repository files, command-line output
 long-lived workspace files. Logs must not print secret values. Pull-request workflows must never receive publishing
 secrets, and the release environment must require human approval.
 
+## Protected release workflow setup
+
+`.github/workflows/release-preflight.yml` is a manual `workflow_dispatch` workflow for the first release. Its active
+credential-free stage checks out `main`, requires a successful CI run for that exact commit, accepts only
+`releaseVersion=0.1.0`, and runs the repository checks plus the local publication and isolated-consumer verification.
+It has read-only GitHub permissions and does not reference publishing credentials.
+
+The remote-preflight, irreversible-publication, and post-publication jobs are intentionally unavailable. They must not
+be enabled merely by dispatch input. Before a separately reviewed change can attach those jobs to an environment, a
+maintainer must independently verify all of the following GitHub configuration:
+
+- an environment named `production-release` exists;
+- it requires an appropriate human reviewer, with self-approval disabled according to the organization's policy;
+- deployments are restricted to the protected `main` branch or the approved release ref;
+- only that environment contains `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`, `SIGNING_KEY`,
+  `SIGNING_PASSWORD`, `GRADLE_PUBLISH_KEY`, and `GRADLE_PUBLISH_SECRET`;
+- repository rules continue to require the protected-main checks and human approval; and
+- the release operator has independently confirmed Central namespace ownership and Plugin Portal organization/plugin
+  ownership.
+
+After the environment is verified, remote actions remain deliberately split into two human authorization decisions:
+
+1. A protected preflight may run `validateRemotePublicationPreflightInputs` and the Plugin Portal validate-only path.
+   Maven Central validation deployment remains user-managed and must stop before release.
+2. A later, explicitly approved publication decision may release the already validated Central artifacts, verify public
+   resolution, and publish the identical plugin version. Tag and GitHub Release creation occur only after the published
+   consumer smoke tests pass.
+
+If Central release succeeds but Plugin Portal publication fails, record the partial release and advance to a new patch
+version. Never overwrite or reuse the released Central version with changed artifacts.
+
 ## Implemented local and remote-preflight boundaries
 
 `preparePublicationVerification` creates disposable Central-like, Portal-like, and third-party Maven repositories.

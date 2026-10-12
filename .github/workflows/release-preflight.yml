@@ -1,0 +1,115 @@
+name: Release preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release version to verify; v0.1.0 is the only supported value for the first release."
+        required: true
+        default: "0.1.0"
+        type: string
+
+# This workflow deliberately has no deployment or write permissions. It is a credential-free
+# release-verification entry point until the production-release environment has been independently
+# created and verified with the documented protection rules.
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  release-verification:
+    name: Credential-free release verification
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.release_version }}
+    steps:
+      - name: Validate the first-release version
+        shell: bash
+        run: |
+          if [ "$RELEASE_VERSION" != "0.1.0" ]; then
+            echo "This workflow only verifies the first release version 0.1.0."
+            exit 1
+          fi
+
+      - name: Check out the approved main branch
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Record the checked-out main commit
+        id: main
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify successful main CI for the checked-out commit
+        uses: actions/github-script@v9
+        env:
+          MAIN_SHA: ${{ steps.main.outputs.sha }}
+        with:
+          script: |
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "ci.yml",
+              branch: "main",
+              status: "completed",
+              per_page: 100,
+            });
+            const mainRun = runs.find((run) => run.head_sha === process.env.MAIN_SHA);
+            if (!mainRun || mainRun.conclusion !== "success") {
+              core.setFailed(`The checked-out main commit ${process.env.MAIN_SHA} has no successful CI run.`);
+            }
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Run repository checks
+        run: |
+          test -z "$(git status --porcelain)"
+          ./gradlew check
+          ./gradlew build
+          ./gradlew --warning-mode all check
+          git diff --check
+
+      - name: Verify local v0.1.0 publication artifacts
+        run: |
+          ./gradlew preparePublicationVerification -PreleaseVersion="$RELEASE_VERSION"
+          ./gradlew :config-contract-gradle-plugin:test \
+            --tests "io.github.inryeokoffice.configcontract.gradle.PublicationPipelineFunctionalTest"
+
+  protected-remote-preflight:
+    name: Protected remote preflight (unavailable)
+    needs: release-verification
+    # Intentionally fail-closed. Do not add the production-release environment or secret references
+    # until its required reviewers and deployment restrictions have been independently verified.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Remote preflight is unavailable until production-release is protected."
+
+  irreversible-publication:
+    name: Irreversible publication (unavailable)
+    needs: protected-remote-preflight
+    # Intentionally fail-closed. Maven Central release and Plugin Portal publication remain manual.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Irreversible publication is unavailable in this workflow."
+
+  post-publication-finalization:
+    name: Post-publication verification and finalization (unavailable)
+    needs: irreversible-publication
+    # Intentionally fail-closed. Tags and GitHub Releases require separate human authorization.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Post-publication finalization is unavailable in this workflow."
