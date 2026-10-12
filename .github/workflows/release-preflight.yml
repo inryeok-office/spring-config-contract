@@ -16,6 +16,10 @@ permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: remote-publication-preflight-${{ inputs.release_version }}
+  cancel-in-progress: false
+
 jobs:
   release-verification:
     name: Credential-free release verification
@@ -87,14 +91,94 @@ jobs:
             --tests "io.github.inryeokoffice.configcontract.gradle.PublicationPipelineFunctionalTest"
 
   protected-remote-preflight:
-    name: Protected remote preflight (unavailable)
+    name: Protected remote preflight
     needs: release-verification
-    # Intentionally fail-closed. Do not add the production-release environment or secret references
-    # until its required reviewers and deployment restrictions have been independently verified.
-    if: ${{ false }}
+    # Environment protection is evaluated before this job receives environment-scoped secrets.
+    # A dispatch from any other ref is skipped and can never use production credentials.
+    if: ${{ github.ref == 'refs/heads/main' && inputs.release_version == '0.1.0' }}
     runs-on: ubuntu-latest
+    environment: production-release
+    env:
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+      SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+      GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+      GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
     steps:
-      - run: echo "Remote preflight is unavailable until production-release is protected."
+      - name: Check out the approved main branch
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Record the checked-out main commit
+        id: main
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify successful main CI for the checked-out commit
+        uses: actions/github-script@v9
+        env:
+          MAIN_SHA: ${{ steps.main.outputs.sha }}
+        with:
+          script: |
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "ci.yml",
+              branch: "main",
+              status: "completed",
+              per_page: 100,
+            });
+            const mainRun = runs.find((run) => run.head_sha === process.env.MAIN_SHA);
+            if (!mainRun || mainRun.conclusion !== "success") {
+              core.setFailed(`The checked-out main commit ${process.env.MAIN_SHA} has no successful CI run.`);
+            }
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Verify protected remote-preflight inputs
+        shell: bash
+        run: |
+          set +x
+          for input in \
+            MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD SIGNING_KEY SIGNING_PASSWORD \
+            GRADLE_PUBLISH_KEY GRADLE_PUBLISH_SECRET; do
+            if [ -z "${!input:-}" ]; then
+              echo "Missing required protected input: $input"
+              exit 1
+            fi
+          done
+          ./gradlew validateRemotePublicationPreflightInputs -PreleaseVersion="$RELEASE_VERSION" -PallowRemotePreflight=true
+
+      - name: Generate and verify signed Central-bound artifacts
+        run: ./gradlew preparePublicationVerification -PreleaseVersion="$RELEASE_VERSION"
+
+      - name: Upload and validate a user-managed Central deployment
+        id: central
+        run: |
+          python3 .github/scripts/central_remote_preflight.py \
+            --repository build/publication-verification/central \
+            --bundle build/publication-verification/central-bundle.zip \
+            --version "$RELEASE_VERSION"
+
+      - name: Record validated Central deployment
+        run: |
+          echo "Central USER_MANAGED deployment validated: ${{ steps.central.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate Plugin Portal publication metadata
+        run: ./gradlew :config-contract-gradle-plugin:publishPlugins --validate-only -PreleaseVersion="$RELEASE_VERSION"
 
   irreversible-publication:
     name: Irreversible publication (unavailable)

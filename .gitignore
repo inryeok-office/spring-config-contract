@@ -23,6 +23,10 @@
 hs_err_pid*
 replay_pid*
 
+# Python tooling
+__pycache__/
+*.py[cod]
+
 # Gradle
 .gradle/
 .gradle-user/

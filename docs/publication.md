@@ -211,9 +211,10 @@ credential-free stage checks out `main`, requires a successful CI run for that e
 `releaseVersion=0.1.0`, and runs the repository checks plus the local publication and isolated-consumer verification.
 It has read-only GitHub permissions and does not reference publishing credentials.
 
-The remote-preflight, irreversible-publication, and post-publication jobs are intentionally unavailable. They must not
-be enabled merely by dispatch input. Before a separately reviewed change can attach those jobs to an environment, a
-maintainer must independently verify all of the following GitHub configuration:
+The remote-preflight job is restricted to `main`, uses the `production-release` environment, and cannot begin until
+that environment's required reviewers approve it. The irreversible-publication and post-publication jobs remain
+intentionally unavailable. Before enabling the protected remote preflight, a maintainer must independently verify all
+of the following GitHub configuration:
 
 - an environment named `production-release` exists;
 - it requires an appropriate human reviewer, with self-approval disabled according to the organization's policy;
@@ -226,11 +227,20 @@ maintainer must independently verify all of the following GitHub configuration:
 
 After the environment is verified, remote actions remain deliberately split into two human authorization decisions:
 
-1. A protected preflight may run `validateRemotePublicationPreflightInputs` and the Plugin Portal validate-only path.
-   Maven Central validation deployment remains user-managed and must stop before release.
+1. A protected preflight may run `validateRemotePublicationPreflightInputs`, package the signed Central-like
+   publications, upload them to the Central Publisher Portal as `publishingType=USER_MANAGED`, poll until the returned
+   deployment ID reaches `VALIDATED`, and run the Plugin Portal validate-only path. It never invokes the Central
+   deployment publish endpoint. The deployment ID is recorded in the protected workflow summary for the later manual
+   release decision.
 2. A later, explicitly approved publication decision may release the already validated Central artifacts, verify public
    resolution, and publish the identical plugin version. Tag and GitHub Release creation occur only after the published
    consumer smoke tests pass.
+
+The remote preflight uses `.github/scripts/central_remote_preflight.py`. It verifies that all three aligned Central
+modules contain JAR, sources, Dokka Javadoc, POM, Gradle Module Metadata, and signatures before bundling them. An
+uncertain upload outcome is a hard failure: the workflow never retries an upload automatically, and the operator must
+inspect the Central Portal before deciding whether another upload is safe. `FAILED` validation is likewise reported
+without dropping or publishing the deployment.
 
 If Central release succeeds but Plugin Portal publication fails, record the partial release and advance to a new patch
 version. Never overwrite or reuse the released Central version with changed artifacts.

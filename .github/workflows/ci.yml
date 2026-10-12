@@ -33,5 +33,7 @@ jobs:
             echo "gradlew.bat must be stored with LF in the Git index to match .gitattributes."
             exit 1
           fi
+      - name: Test remote publication preflight safety
+        run: python3 .github/scripts/test_central_remote_preflight.py
       - name: Run checks
         run: ./gradlew check
