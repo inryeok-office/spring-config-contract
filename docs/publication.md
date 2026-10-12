@@ -211,6 +211,10 @@ credential-free stage checks out `main`, requires a successful CI run for that e
 `releaseVersion=0.1.0`, and runs the repository checks plus the local publication and isolated-consumer verification.
 It has read-only GitHub permissions and does not reference publishing credentials.
 
+The protected job checks out the immutable workflow SHA rather than the moving `main` ref after approval. Production
+credentials are scoped only to the individual validation, signing, Central, or Plugin Portal step that needs them; setup
+actions and GitHub API checks do not receive publishing credentials.
+
 The remote-preflight job is restricted to `main`, uses the `production-release` environment, and cannot begin until
 that environment's required reviewers approve it. The irreversible-publication and post-publication jobs remain
 intentionally unavailable. Before enabling the protected remote preflight, a maintainer must independently verify all

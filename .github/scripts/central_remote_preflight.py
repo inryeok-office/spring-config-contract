@@ -69,7 +69,14 @@ def authorization_header(username: str, password: str) -> str:
     return f"Bearer {token}"
 
 
-def request(url: str, method: str, authorization: str, body: bytes | None = None, content_type: str | None = None) -> bytes:
+def request(
+    url: str,
+    method: str,
+    authorization: str,
+    body: bytes | None = None,
+    content_type: str | None = None,
+    retry_transient: bool = False,
+) -> bytes | None:
     headers = {"Authorization": authorization}
     if content_type:
         headers["Content-Type"] = content_type
@@ -77,8 +84,12 @@ def request(url: str, method: str, authorization: str, body: bytes | None = None
         with urlopen(Request(url, data=body, headers=headers, method=method), timeout=60) as response:
             return response.read()
     except HTTPError as error:
+        if retry_transient and (error.code == 408 or error.code == 429 or error.code >= 500):
+            return None
         raise PreflightError(f"Central request failed with HTTP {error.code}.") from error
     except URLError as error:
+        if retry_transient:
+            return None
         raise PreflightError("Central request outcome is uncertain; do not retry automatically.") from error
 
 
@@ -104,6 +115,7 @@ def upload_bundle(base_url: str, bundle: Path, authorization: str, deployment_na
         body,
         f"multipart/form-data; boundary={boundary}",
     )
+    assert response is not None
     deployment_id = response.decode("utf-8").strip()
     if not deployment_id:
         raise PreflightError("Central upload returned no deployment ID; do not retry automatically.")
@@ -113,7 +125,12 @@ def upload_bundle(base_url: str, bundle: Path, authorization: str, deployment_na
 def wait_for_validation(base_url: str, deployment_id: str, authorization: str, poll_seconds: float, max_polls: int) -> None:
     status_url = f"{base_url.rstrip('/')}/api/v1/publisher/status?{urlencode({'id': deployment_id})}"
     for attempt in range(max_polls):
-        response = request(status_url, "POST", authorization)
+        response = request(status_url, "POST", authorization, retry_transient=True)
+        if response is None:
+            if attempt + 1 < max_polls:
+                time.sleep(poll_seconds)
+                continue
+            raise PreflightError(f"Central status could not be read for deployment {deployment_id}.")
         try:
             status = json.loads(response.decode("utf-8"))
         except json.JSONDecodeError as error:
