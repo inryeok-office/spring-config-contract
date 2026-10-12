@@ -26,7 +26,7 @@ class PublicationPipelineFunctionalTest {
     }
 
     @Test
-    fun `publishes signed artifacts and resolves an offline external consumer`() {
+    fun `publishes signed artifacts with configuration cache and resolves an offline external consumer`() {
         val central = workspace.resolve("central")
         val portal = workspace.resolve("portal")
         val thirdParty = workspace.resolve("third-party")
@@ -36,7 +36,7 @@ class PublicationPipelineFunctionalTest {
 
         try {
             val publication =
-                runProducer(
+                runProducerWithConfigurationCache(
                     producer,
                     "preparePublicationVerification",
                     "-PreleaseVersion=$TEST_VERSION",
@@ -47,6 +47,7 @@ class PublicationPipelineFunctionalTest {
                 )
 
             assertTrue(publication.output.contains("BUILD SUCCESSFUL"), publication.output)
+            assertTrue(publication.output.contains("Configuration cache entry stored."), publication.output)
             assertPublishedRuntimeMetadata(central)
             assertPluginMetadata(portal)
             assertSignedCentralArtifacts(central, signing)
@@ -74,40 +75,27 @@ class PublicationPipelineFunctionalTest {
             writeConsumer(coexistence, central, portal, thirdParty, ConsumerKind.SPRING_BOOT_AND_KOTLIN, "")
             val coexistenceResult = runConsumer(coexistence, "configContractCheck")
             assertTrue(coexistenceResult.output.contains("BUILD SUCCESSFUL"), coexistenceResult.output)
+
+            assertTrue(thirdParty.deleteRecursively(), "Could not remove the disposable third-party repository")
+            val reused =
+                runProducerWithConfigurationCache(
+                    producer,
+                    "preparePublicationVerification",
+                    "-PreleaseVersion=$TEST_VERSION",
+                    "-PcentralLikeRepository=${central.absolutePath}",
+                    "-PportalLikeRepository=${portal.absolutePath}",
+                    "-PthirdPartyRepository=${thirdParty.absolutePath}",
+                    environment = signing.environment,
+                )
+            assertEquals(0, reused.exitCode, reused.output)
+            assertTrue(reused.output.contains("Reusing configuration cache."), reused.output)
+            assertTrue(reused.output.contains(":seedThirdPartyRuntimeRepository"), reused.output)
+            assertFalse(reused.output.contains(":seedThirdPartyRuntimeRepository UP-TO-DATE"), reused.output)
+            assertThirdPartyRuntimeRepository(thirdParty)
         } finally {
             signing.destroy()
             workspace.deleteRecursively()
         }
-    }
-
-    @Test
-    fun `reuses configuration cache while rebuilding the disposable publication repositories`() {
-        val central = workspace.resolve("central")
-        val portal = workspace.resolve("portal")
-        val thirdParty = workspace.resolve("third-party")
-        val producer = workspace.resolve("producer")
-        copyProducer(producer)
-
-        val arguments =
-            arrayOf(
-                "preparePublicationVerification",
-                "-PreleaseVersion=$TEST_VERSION",
-                "-PcentralLikeRepository=${central.absolutePath}",
-                "-PportalLikeRepository=${portal.absolutePath}",
-                "-PthirdPartyRepository=${thirdParty.absolutePath}",
-            )
-        val environment = environmentWithoutProductionCredentials()
-
-        val first = runProducerWithConfigurationCache(producer, *arguments, environment = environment)
-        assertEquals(0, first.exitCode, first.output)
-        assertTrue(first.output.contains("Configuration cache entry stored."), first.output)
-
-        val second = runProducerWithConfigurationCache(producer, *arguments, environment = environment)
-        assertEquals(0, second.exitCode, second.output)
-        assertTrue(second.output.contains("Reusing configuration cache."), second.output)
-        assertTrue(second.output.contains(":seedThirdPartyRuntimeRepository"), second.output)
-        assertPublishedRuntimeMetadata(central)
-        assertPluginMetadata(portal)
     }
 
     @Test
@@ -222,6 +210,18 @@ class PublicationPipelineFunctionalTest {
                     "io/github/inryeok-office/config-contract-gradle-plugin/$TEST_VERSION/" +
                         "config-contract-gradle-plugin-$TEST_VERSION.module",
                 ).isFile,
+        )
+    }
+
+    private fun assertThirdPartyRuntimeRepository(thirdParty: File) {
+        assertTrue(thirdParty.isDirectory, "Third-party repository was not rebuilt")
+        assertTrue(
+            thirdParty.walkTopDown().any { file -> file.isFile && file.extension == "pom" },
+            "Third-party repository has no Maven metadata",
+        )
+        assertTrue(
+            thirdParty.walkTopDown().any { file -> file.isFile && file.extension == "jar" },
+            "Third-party repository has no runtime artifacts",
         )
     }
 
@@ -368,7 +368,7 @@ $repositories
         producer: File,
         vararg arguments: String,
         environment: Map<String, String>,
-    ): BuildExecution = executeGradle(producer, producer, environment, *arguments, "--stacktrace")
+    ): BuildExecution = executeGradle(producer, producer, environment, *arguments, "--stacktrace", "--configuration-cache")
 
     private fun environmentWithoutProductionCredentials(): Map<String, String> =
         System.getenv() -

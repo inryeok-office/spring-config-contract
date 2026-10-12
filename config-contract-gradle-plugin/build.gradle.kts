@@ -103,6 +103,13 @@ class SampleLocations(
 
 tasks.test {
     val samples = rootProject.layout.projectDirectory.dir("samples")
+    val producerBuildFiles =
+        listOf(
+            rootProject.layout.projectDirectory.file("build.gradle.kts"),
+            rootProject.layout.projectDirectory.file("settings.gradle.kts"),
+            rootProject.layout.projectDirectory.file("gradle.properties"),
+            rootProject.layout.projectDirectory.file("gradle/libs.versions.toml"),
+        ) + rootProject.subprojects.map { it.layout.projectDirectory.file("build.gradle.kts") }
     systemProperty(
         "configContract.springBootVersion",
         libs.versions.spring.boot
@@ -118,6 +125,10 @@ tasks.test {
         .files(kotlinSample.output.classesDirs)
         .withNormalizer(ClasspathNormalizer::class)
         .withPropertyName("kotlinSampleClasses")
+    inputs
+        .files(producerBuildFiles)
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("publicationProducerBuildFiles")
     jvmArgumentProviders.add(
         SampleLocations(
             provider { samples },
