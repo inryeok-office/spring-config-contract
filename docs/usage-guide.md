@@ -1,6 +1,8 @@
 # Usage guide
 
-This guide describes how to use the v0.1 configuration contract workflow: a Gradle task that compares the configuration a Spring Boot application requires with the configuration its deployment files provide. It documents only behavior that is implemented and covered by the [sample projects](../samples/README.md). The Gradle plugin is not published, so it can be used only from a source checkout of this repository.
+This guide describes the v0.1 configuration contract workflow: a Gradle task that compares configuration a Spring Boot application requires with configuration its deployment files provide. It documents only behavior implemented and covered by the [sample projects](../samples/README.md).
+
+The v0.1.0 runtime modules are publicly available from Maven Central. The Gradle plugin's first Plugin Portal submission is awaiting approval, and public Plugin Portal resolution has not yet been verified. Until that verification succeeds, use the source-checkout workflow below; the versioned Plugin Portal example is a post-approval installation path, not a current support claim.
 
 ## What the check does
 
@@ -11,9 +13,35 @@ This guide describes how to use the v0.1 configuration contract workflow: a Grad
 
 It reports a `MISSING` finding for a required key that deployment does not provide, and an `UNUSED` finding for a provided key that nothing in the application recognizes. It compares key presence only; values are never compared and never appear in the output.
 
-## Quick Start
+## Installation
 
-### A. Verify from a clean checkout
+### Public Plugin Portal installation after approval
+
+After the Plugin Portal makes v0.1.0 visible and the published-consumer smoke tests pass, apply the plugin by version:
+
+```kotlin
+plugins {
+    java
+    id("io.github.inryeok-office.config-contract") version "0.1.0"
+}
+
+configContract {
+    dotenvExampleFiles.from("deploy/.env.example")
+    composeFiles.from("deploy/compose.yml")
+}
+```
+
+Run the task explicitly; it is not attached to `check`:
+
+```bash
+./gradlew configContractCheck
+```
+
+This section intentionally does not claim that the public installation is currently available. Check the [publication guide](publication.md) for the current release gate before using it.
+
+### Local source-checkout development
+
+#### Verify from a clean checkout
 
 This is how the v0.1 flow is verified. The command runs `configContractCheck` against every project under `samples/` and asserts the exact report of each. The samples are copied into temporary directories and built with `--offline`, so they do not need network access themselves. They are deliberately not buildable in place; see [samples/README.md](../samples/README.md) for why.
 
@@ -27,7 +55,7 @@ cd spring-config-contract
 
 On Windows, use `gradlew.bat`. The build ends with `BUILD SUCCESSFUL` when every sample produces the report documented in [samples/README.md](../samples/README.md).
 
-### B. Try it on your own Spring project
+#### Try it on your own Spring project
 
 The plugin is applied by id, without a version, by including this repository as a build in your project's `settings.gradle.kts`.
 
