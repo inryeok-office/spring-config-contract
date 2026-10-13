@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -25,7 +25,7 @@ class SmokeTestError(RuntimeError):
 
 def run_gradle(gradle: Path, project: Path, gradle_home: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
     command = [str(gradle), "--no-daemon", "--gradle-user-home", str(gradle_home), "-p", str(project), *arguments]
-    use_windows_command_shell = os.name == "nt" and gradle.suffix.lower() in {".bat", ".cmd"}
+    use_windows_command_shell = sys.platform == "win32" and gradle.suffix.lower() in {".bat", ".cmd"}
     if use_windows_command_shell:
         command = subprocess.list2cmdline(command)
     return subprocess.run(

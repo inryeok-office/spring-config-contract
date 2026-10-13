@@ -62,7 +62,7 @@ class PublishedPluginConsumerSmokeTest(unittest.TestCase):
             resolved = SMOKE.resolve_gradle_wrapper(wrapper)
 
             with (
-                patch.object(SMOKE.os, "name", "nt"),
+                patch.object(SMOKE.sys, "platform", "win32"),
                 patch.object(SMOKE.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "")) as run,
             ):
                 SMOKE.run_gradle(resolved, Path(temporary) / "external consumer", Path(temporary) / "gradle home", "help")
