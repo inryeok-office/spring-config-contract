@@ -35,5 +35,7 @@ jobs:
           fi
       - name: Test remote publication preflight safety
         run: python3 .github/scripts/test_central_remote_preflight.py
+      - name: Test Plugin Portal publication safety
+        run: python3 .github/scripts/test_published_plugin_consumer_smoke.py
       - name: Run checks
         run: ./gradlew check
