@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import tempfile
 import unittest
@@ -20,6 +21,59 @@ SPEC.loader.exec_module(SMOKE)
 
 
 class PublishedPluginConsumerSmokeTest(unittest.TestCase):
+    def test_relative_wrapper_path_resolves_before_running_in_external_consumer_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            wrapper = root / "wrapper path" / "gradlew"
+            wrapper.parent.mkdir()
+            wrapper.touch()
+            consumer = root / "external consumer"
+            consumer.mkdir()
+            gradle_home = root / "gradle home"
+
+            previous_directory = Path.cwd()
+            try:
+                os.chdir(root)
+                resolved = SMOKE.resolve_gradle_wrapper(Path("wrapper path") / "gradlew")
+            finally:
+                os.chdir(previous_directory)
+
+            with patch.object(SMOKE.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "")) as run:
+                SMOKE.run_gradle(resolved, consumer, gradle_home, "help")
+
+            command = run.call_args.args[0]
+            self.assertEqual(str(wrapper.resolve()), command[0])
+            self.assertTrue(Path(command[0]).is_absolute())
+            self.assertIn(str(consumer), command)
+
+    def test_absolute_gradle_wrapper_path_is_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            wrapper = Path(temporary) / "gradlew"
+            wrapper.touch()
+
+            self.assertEqual(wrapper.resolve(), SMOKE.resolve_gradle_wrapper(wrapper.resolve()))
+
+    def test_windows_batch_wrapper_path_is_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            wrapper = Path(temporary) / "wrapper path" / "gradlew.bat"
+            wrapper.parent.mkdir()
+            wrapper.touch()
+
+            resolved = SMOKE.resolve_gradle_wrapper(wrapper)
+
+            with (
+                patch.object(SMOKE.os, "name", "nt"),
+                patch.object(SMOKE.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "")) as run,
+            ):
+                SMOKE.run_gradle(resolved, Path(temporary) / "external consumer", Path(temporary) / "gradle home", "help")
+
+            self.assertEqual(".bat", resolved.suffix)
+            self.assertEqual(wrapper.resolve(), resolved)
+            command = run.call_args.args[0]
+            self.assertIsInstance(command, str)
+            self.assertIn(f'"{resolved}"', command)
+            self.assertTrue(run.call_args.kwargs["shell"])
+
     def test_central_consumer_uses_only_maven_central_and_all_runtime_modules(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary) / "central"

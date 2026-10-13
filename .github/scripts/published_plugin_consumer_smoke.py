@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -23,14 +24,27 @@ class SmokeTestError(RuntimeError):
 
 
 def run_gradle(gradle: Path, project: Path, gradle_home: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+    command = [str(gradle), "--no-daemon", "--gradle-user-home", str(gradle_home), "-p", str(project), *arguments]
+    use_windows_command_shell = os.name == "nt" and gradle.suffix.lower() in {".bat", ".cmd"}
+    if use_windows_command_shell:
+        command = subprocess.list2cmdline(command)
     return subprocess.run(
-        [str(gradle), "--no-daemon", "--gradle-user-home", str(gradle_home), "-p", str(project), *arguments],
+        command,
         check=False,
+        shell=use_windows_command_shell,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
     )
+
+
+def resolve_gradle_wrapper(gradle: Path) -> Path:
+    """Resolve the wrapper before consumer commands run outside the checkout."""
+    resolved = gradle.expanduser().resolve()
+    if not resolved.is_file():
+        raise SmokeTestError("The checked-in Gradle Wrapper path does not exist.")
+    return resolved
 
 
 def require_success(result: subprocess.CompletedProcess[str], purpose: str) -> None:
@@ -161,8 +175,7 @@ def main() -> int:
     args = parse_args()
     if args.version != VERSION:
         raise SmokeTestError(f"Published consumer smoke tests only support release version {VERSION}.")
-    if not args.gradle.is_file():
-        raise SmokeTestError("The checked-in Gradle Wrapper path does not exist.")
+    gradle = resolve_gradle_wrapper(args.gradle)
 
     temporary = None
     if args.workspace is None:
@@ -173,11 +186,11 @@ def main() -> int:
         workspace.mkdir(parents=True, exist_ok=True)
     try:
         if args.mode in {"central", "all"}:
-            verify_central(args.gradle, workspace, args.version)
+            verify_central(gradle, workspace, args.version)
         if args.mode in {"default", "all"}:
-            verify_plugin_consumer(args.gradle, workspace, args.version, mirrored=False)
+            verify_plugin_consumer(gradle, workspace, args.version, mirrored=False)
         if args.mode in {"mirrored", "all"}:
-            verify_plugin_consumer(args.gradle, workspace, args.version, mirrored=True)
+            verify_plugin_consumer(gradle, workspace, args.version, mirrored=True)
     finally:
         if temporary is not None:
             temporary.cleanup()
