@@ -6,100 +6,94 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![JDK](https://img.shields.io/badge/JDK-21-blue.svg)](docs/compatibility.md)
 
-Spring Config Contract is an open-source developer tool that checks whether configuration required by a Spring Boot application matches the configuration provided by its deployment environment.
+Spring Config Contract checks whether configuration required by a Spring Boot application is supplied by its deployment configuration. It reports missing required keys and deployment keys that the application does not recognize.
 
-## Why?
+## Release status
 
-Configuration drift is easy to miss: an application can require a property that is absent from deployment, while deployment files can retain values that the application no longer uses. This project is about comparing two different sides of that contract—not merely comparing Spring configuration files with each other.
+The v0.1.0 runtime modules are published to Maven Central. The initial submission of the Gradle plugin
+`io.github.inryeok-office.config-contract` has completed, but Gradle Plugin Portal first-publication approval and public consumer verification are still pending. Until both complete, public Plugin Portal installation is not a verified workflow.
 
-For supported inputs, the v0.1 workflow reports required keys that deployment omits and deployment keys the application does not recognize. See the [usage guide](docs/usage-guide.md) for the supported input subset and examples.
+Use a [source checkout](docs/usage-guide.md#quick-start) for development today. The [publication guide](docs/publication.md) records the release state and remaining gates.
 
-## Status
+## What v0.1 provides
 
-**Early development.** The v0.1 `configContractCheck` Gradle task is implemented but not yet published; see the [usage guide](docs/usage-guide.md) to try it from a source checkout. The future artifact topology and validation boundary are defined in the [publication readiness guide](docs/publication.md).
+- Spring requirements from the supported `@ConfigurationProperties`, `@Value`, and application configuration subset.
+- Deployment inputs from `.env.example` and Docker Compose `services.<name>.environment` entries.
+- Deterministic `MISSING` and `UNUSED` findings, with required, optional, and default-aware behavior.
+- The `configContractCheck` Gradle task, which fails non-zero when it finds either category.
 
-The completed v0.1.0 scope is recorded in the [release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26). Compatibility claims are defined in the [compatibility guide](docs/compatibility.md).
+The task compares key presence; it does not compare values. See the [compatibility guide](docs/compatibility.md) for the tested JDK and Spring Boot line, and the [usage guide](docs/usage-guide.md#known-limitations-and-unsupported-inputs) for v0.1 limitations.
 
-## v0.1.0 scope
+## Installation after Plugin Portal approval
 
-The first release implements:
-
-- Spring-side inputs: supported `@ConfigurationProperties`, `@Value`, and application configuration cases on the [tested Spring Boot line](docs/compatibility.md).
-- Deployment-side inputs: `.env.example` and Docker Compose.
-- Contract findings: missing and unused configuration, required/optional behavior, and default-value-aware comparison.
-- Developer integration: a Gradle integration with the `configContractCheck` task and CI-friendly results.
-
-The plugin is not published. It can be used from a source checkout as described in the [usage guide](docs/usage-guide.md).
-
-## How it works
-
-```text
-Spring Boot
-@ConfigurationProperties / @Value / application.yml
-                    │
-                    ▼
-             Requirements
-                    │
-                    ▼
-             Contract Engine
-                    ▲
-                    │
-           Provided Config
-                    ▲
-                    │
-      .env.example / Docker Compose
-```
-
-This is the v0.1 data flow for the supported inputs.
-
-## The `configContractCheck` task
-
-The Gradle plugin `io.github.inryeok-office.config-contract` is implemented on `main` but not yet published, so it can only be used from a source build. It adds a `configContract` extension and a `configContractCheck` task:
+Once the plugin is publicly visible and the published-consumer checks pass, an external project will use the versioned Plugin Portal declaration below:
 
 ```kotlin
 plugins {
     java
-    id("io.github.inryeok-office.config-contract")
+    id("io.github.inryeok-office.config-contract") version "0.1.0"
 }
 
 configContract {
-    activeProfiles.set(listOf("prod"))        // optional; empty analyzes the default profile
-    dotenvExampleFiles.from(".env.example")   // optional
-    composeFiles.from("compose.yml")          // optional
-    // applicationConfigurationFiles defaults to top-level application*.properties|yml|yaml in main resources
+    dotenvExampleFiles.from("deploy/.env.example")
+    composeFiles.from("deploy/compose.yml")
 }
 ```
 
-`./gradlew configContractCheck` compiles the `main` source set, discovers its requirements, reads the deployment files, and prints one line per finding, ordered by key. The task fails when any `MISSING` or `UNUSED` finding exists; Spring discovery diagnostics are listed but do not fail the build. Every path in the output is relative to the root project, and deployment files must live inside it. The task is not attached to `check`.
+Then run the task explicitly:
 
-## Architecture
+```bash
+./gradlew configContractCheck
+```
 
-- `config-contract-core`: framework-independent domain models and comparison rules.
-- `config-contract-spring`: Spring-specific interpretation and discovery.
-- `config-contract-deployment`: deployment-format parsers and adapters.
-- `config-contract-gradle-plugin`: Gradle orchestration and integration.
-- `config-contract-test`: shared fixtures and test utilities.
+This is the intended published installation path, not a currently verified public-installation instruction. For the current source-checkout workflow, see the [usage guide](docs/usage-guide.md#quick-start).
 
-See the [architecture guide](docs/architecture.md) for dependency boundaries and invariants.
+## How it works
 
-## Roadmap
+```text
+Spring Boot requirements                    Deployment-provided keys
+@ConfigurationProperties / @Value           .env.example / Docker Compose
+application.properties / yml                 services.<name>.environment
+                    │                                  │
+                    └────────── Contract comparison ───┘
+                                      │
+                            MISSING / UNUSED findings
+```
 
-See the [roadmap](docs/roadmap.md), [v0.1.0 milestone](https://github.com/inryeok-office/spring-config-contract/milestone/1), and [release tracker](https://github.com/inryeok-office/spring-config-contract/issues/26).
+The Gradle plugin registers the `configContract` extension and `configContractCheck` task. The task analyzes the compiled `main` source set. It is deliberately not attached to `check`, so CI must invoke it explicitly. Deployment and application configuration paths must resolve inside the root project, and reported paths are relative to that root. Findings are ordered by key; diagnostics for unsupported Spring discovery cases are reported but do not themselves fail the build.
 
-## Development
+For a passing configuration, the task reports:
 
-JDK 21 is required. The implemented workflow and repository verification can be run with the Gradle Wrapper:
+```text
+Configuration contract check passed: no findings
+```
+
+For a missing required key, it fails non-zero with a finding such as:
+
+```text
+MISSING app.api-key (com.example.AppSettings.apiKey)
+```
+
+`UNUSED` deployment keys fail the task in the same way. The [usage guide](docs/usage-guide.md#findings) defines the exact behavior and supported discovery subset.
+
+## Documentation
+
+- [Usage guide](docs/usage-guide.md): installation states, DSL configuration, diagnostics, and limitations.
+- [Compatibility](docs/compatibility.md): supported JDK, Gradle Wrapper, Kotlin, and Spring Boot claims.
+- [Architecture](docs/architecture.md): module boundaries and dependency direction.
+- [Publication readiness](docs/publication.md): artifact topology, release gates, and recovery policy.
+- [Samples](samples/README.md): the offline end-to-end scenarios used by the build.
+
+## Development and contributing
+
+JDK 21 and the checked-in Gradle Wrapper are required:
 
 ```bash
 ./gradlew check
 ./gradlew build
 ```
 
-On Windows, use `gradlew.bat`. See the [development guide](docs/development.md) and [testing guide](docs/testing.md) for contributor commands and expectations.
-
-## Contributing
-
-The project is early-stage, and focused contributions and design discussions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), then review the [contribution workflow](docs/contribution-workflow.md) and [governance policy](docs/governance.md).
+On Windows, use `gradlew.bat`. Start with [CONTRIBUTING.md](CONTRIBUTING.md), then read the [development guide](docs/development.md), [testing guide](docs/testing.md), and [governance policy](docs/governance.md).
 
 ## License
 
