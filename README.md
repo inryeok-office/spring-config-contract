@@ -13,7 +13,7 @@ Spring Config Contract checks whether configuration required by a Spring Boot ap
 The v0.1.0 runtime modules are published to Maven Central. The initial submission of the Gradle plugin
 `io.github.inryeok-office.config-contract` has completed, but Gradle Plugin Portal first-publication approval and public consumer verification are still pending. Until both complete, public Plugin Portal installation is not a verified workflow.
 
-Use a [source checkout](docs/usage-guide.md#local-source-checkout-development) for development today. The [publication guide](docs/publication.md) records the release state and remaining gates.
+Use a [source checkout](docs/usage-guide.md#quick-start) for development today. The [publication guide](docs/publication.md) records the release state and remaining gates.
 
 ## What v0.1 provides
 
@@ -46,7 +46,7 @@ Then run the task explicitly:
 ./gradlew configContractCheck
 ```
 
-This is the intended published installation path, not a currently verified public-installation instruction. For the current source-checkout workflow, see the [usage guide](docs/usage-guide.md#local-source-checkout-development).
+This is the intended published installation path, not a currently verified public-installation instruction. For the current source-checkout workflow, see the [usage guide](docs/usage-guide.md#quick-start).
 
 ## How it works
 
@@ -60,7 +60,7 @@ application.properties / yml                 services.<name>.environment
                             MISSING / UNUSED findings
 ```
 
-`configContractCheck` adds a `configContract` extension and analyzes the compiled `main` source set. It is deliberately not attached to `check`, so CI must invoke it explicitly. Findings are ordered by key; diagnostics for unsupported Spring discovery cases are reported but do not themselves fail the build.
+The Gradle plugin registers the `configContract` extension and `configContractCheck` task. The task analyzes the compiled `main` source set. It is deliberately not attached to `check`, so CI must invoke it explicitly. Deployment and application configuration paths must resolve inside the root project, and reported paths are relative to that root. Findings are ordered by key; diagnostics for unsupported Spring discovery cases are reported but do not themselves fail the build.
 
 For a passing configuration, the task reports:
 

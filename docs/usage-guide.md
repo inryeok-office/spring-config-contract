@@ -39,9 +39,9 @@ Run the task explicitly; it is not attached to `check`:
 
 This section intentionally does not claim that the public installation is currently available. Check the [publication guide](publication.md) for the current release gate before using it.
 
-### Local source-checkout development
+## Quick Start
 
-#### Verify from a clean checkout
+### A. Verify from a clean checkout
 
 This is how the v0.1 flow is verified. The command runs `configContractCheck` against every project under `samples/` and asserts the exact report of each. The samples are copied into temporary directories and built with `--offline`, so they do not need network access themselves. They are deliberately not buildable in place; see [samples/README.md](../samples/README.md) for why.
 
@@ -55,7 +55,7 @@ cd spring-config-contract
 
 On Windows, use `gradlew.bat`. The build ends with `BUILD SUCCESSFUL` when every sample produces the report documented in [samples/README.md](../samples/README.md).
 
-#### Try it on your own Spring project
+### B. Try it on your own Spring project
 
 The plugin is applied by id, without a version, by including this repository as a build in your project's `settings.gradle.kts`.
 
