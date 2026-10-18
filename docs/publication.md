@@ -1,10 +1,11 @@
 # Publication readiness
 
-The v0.1.0 runtime modules are published to Maven Central. The initial Gradle Plugin Portal submission for
-`io.github.inryeok-office.config-contract` has completed, but first-publication approval, public visibility, and
-published-consumer verification are still pending. The current supported plugin workflow therefore remains a source
-checkout with `pluginManagement.includeBuild`, as described in the [usage guide](usage-guide.md). Maven Central
-runtime modules alone do not make the plugin installable through the `plugins` DSL.
+v0.1.0 is released. The runtime modules are publicly resolvable from Maven Central, and
+`io.github.inryeok-office.config-contract` version `0.1.0` is publicly resolvable from the Gradle Plugin Portal.
+The protected [`verify-published` workflow](https://github.com/inryeok-office/spring-config-contract/actions/runs/39112089966)
+succeeded for both the default Portal path and the explicit Portal-plus-Maven-Central mirror path. The immutable
+release source is [`46b22505bc72e0567eccc2792fbfd01e97afde98`](https://github.com/inryeok-office/spring-config-contract/commit/46b22505bc72e0567eccc2792fbfd01e97afde98);
+the official record is the [v0.1.0 GitHub Release](https://github.com/inryeok-office/spring-config-contract/releases/tag/v0.1.0).
 
 The publication topology is an architectural decision recorded in
 [ADR-0003](decisions/0003-plugin-portal-and-maven-central-publication.md).
@@ -54,8 +55,8 @@ runtime module; there are no independently versioned modules.
 | Core runtime | Maven Central | `io.github.inryeok-office:config-contract-core:0.1.0` (published) |
 | Spring runtime | Maven Central | `io.github.inryeok-office:config-contract-spring:0.1.0` (published) |
 | Deployment runtime | Maven Central | `io.github.inryeok-office:config-contract-deployment:0.1.0` (published) |
-| Plugin implementation | Gradle Plugin Portal | `io.github.inryeok-office:config-contract-gradle-plugin:0.1.0` (submitted for first-publication approval; not publicly resolvable yet) |
-| Plugin marker | Gradle Plugin Portal | `io.github.inryeok-office.config-contract:io.github.inryeok-office.config-contract.gradle.plugin:0.1.0` (submitted for first-publication approval; not publicly resolvable yet) |
+| Plugin implementation | Gradle Plugin Portal | `io.github.inryeok-office:config-contract-gradle-plugin:0.1.0` (published and publicly resolvable) |
+| Plugin marker | Gradle Plugin Portal | `io.github.inryeok-office.config-contract:io.github.inryeok-office.config-contract.gradle.plugin:0.1.0` (published and publicly resolvable) |
 
 The implementation artifact uses the existing root group and Gradle project name. The marker coordinate follows
 Gradle's `plugin.id:plugin.id.gradle.plugin:plugin.version` convention and is generated from the existing plugin
@@ -267,11 +268,10 @@ release version.
    class, runs `configContractCheck`, verifies deterministic MISSING and UNUSED diagnostics, then verifies a passing
    configuration.
 
-The initial Plugin Portal submission can require manual Portal approval. The v0.1.0 `publish` operation has completed
-and is awaiting that approval; it is not evidence of a completed release. Do not retry `publish` for the same version.
-Wait for Portal acceptance and visibility, run `verify-published`, and treat any visibility or consumer failure as a
-partial-release incident. The Central artifacts remain immutable, so a changed artifact set requires a later aligned
-patch version.
+The initial Plugin Portal submission required Portal approval and was subsequently made public. The v0.1.0
+`verify-published` operation succeeded on the immutable release source, proving both supported public consumer paths.
+Do not retry `publish` for an already released version. The Central artifacts remain immutable, so a changed artifact
+set requires a later aligned patch version.
 
 ## Implemented local and remote-preflight boundaries
 
@@ -350,8 +350,8 @@ paths.
 
 [Issue #55](https://github.com/inryeok-office/spring-config-contract/issues/55) implemented the build configuration,
 metadata generation, isolated consumer fixture, and credential-free CI validation. [Issue #61](https://github.com/inryeok-office/spring-config-contract/issues/61)
-tracks the maintainer-authorized v0.1.0 release sequence. A production publish, Git tag, and GitHub Release remain
-separate maintainer actions.
+tracked the maintainer-authorized v0.1.0 release sequence. The production publish, `v0.1.0` tag, and GitHub Release
+are complete; future releases must still follow the same separate maintainer actions.
 
 ## References
 

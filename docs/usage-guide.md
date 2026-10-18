@@ -2,7 +2,9 @@
 
 This guide describes the v0.1 configuration contract workflow: a Gradle task that compares configuration a Spring Boot application requires with configuration its deployment files provide. It documents only behavior implemented and covered by the [sample projects](../samples/README.md).
 
-The v0.1.0 runtime modules are publicly available from Maven Central. The Gradle plugin's first Plugin Portal submission is awaiting approval, and public Plugin Portal resolution has not yet been verified. Until that verification succeeds, use the source-checkout workflow below; the versioned Plugin Portal example is a post-approval installation path, not a current support claim.
+v0.1.0 is publicly available: the runtime modules resolve from Maven Central and the Gradle plugin resolves from the
+Gradle Plugin Portal. The [published-consumer verification](https://github.com/inryeok-office/spring-config-contract/actions/runs/39112089966)
+passed for both the default Portal resolution path and the explicit Portal-plus-Maven-Central mirror path.
 
 ## What the check does
 
@@ -15,9 +17,9 @@ It reports a `MISSING` finding for a required key that deployment does not provi
 
 ## Installation
 
-### Public Plugin Portal installation after approval
+### Public Plugin Portal installation
 
-After the Plugin Portal makes v0.1.0 visible and the published-consumer smoke tests pass, apply the plugin by version:
+Apply the published plugin by version:
 
 ```kotlin
 plugins {
@@ -37,7 +39,7 @@ Run the task explicitly; it is not attached to `check`:
 ./gradlew configContractCheck
 ```
 
-This section intentionally does not claim that the public installation is currently available. Check the [publication guide](publication.md) for the current release gate before using it.
+This is the supported public installation path. See the [publication guide](publication.md) for the release record.
 
 ## Quick Start
 
@@ -55,7 +57,7 @@ cd spring-config-contract
 
 On Windows, use `gradlew.bat`. The build ends with `BUILD SUCCESSFUL` when every sample produces the report documented in [samples/README.md](../samples/README.md).
 
-### B. Try it on your own Spring project
+### B. Source-checkout development
 
 The plugin is applied by id, without a version, by including this repository as a build in your project's `settings.gradle.kts`.
 

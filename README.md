@@ -10,10 +10,13 @@ Spring Config Contract checks whether configuration required by a Spring Boot ap
 
 ## Release status
 
-The v0.1.0 runtime modules are published to Maven Central. The initial submission of the Gradle plugin
-`io.github.inryeok-office.config-contract` has completed, but Gradle Plugin Portal first-publication approval and public consumer verification are still pending. Until both complete, public Plugin Portal installation is not a verified workflow.
+Spring Config Contract v0.1.0 is released. The runtime modules are publicly available from Maven Central, and the
+`io.github.inryeok-office.config-contract` Gradle plugin is publicly available from the Gradle Plugin Portal. The
+[published-consumer verification](https://github.com/inryeok-office/spring-config-contract/actions/runs/39112089966)
+passed for both the default Portal path and the explicit Portal-plus-Maven-Central mirror path.
 
-Use a [source checkout](docs/usage-guide.md#quick-start) for development today. The [publication guide](docs/publication.md) records the release state and remaining gates.
+See the [v0.1.0 release](https://github.com/inryeok-office/spring-config-contract/releases/tag/v0.1.0) and the
+[publication guide](docs/publication.md) for release details.
 
 ## What v0.1 provides
 
@@ -24,9 +27,9 @@ Use a [source checkout](docs/usage-guide.md#quick-start) for development today. 
 
 The task compares key presence; it does not compare values. See the [compatibility guide](docs/compatibility.md) for the tested JDK and Spring Boot line, and the [usage guide](docs/usage-guide.md#known-limitations-and-unsupported-inputs) for v0.1 limitations.
 
-## Installation after Plugin Portal approval
+## Installation
 
-Once the plugin is publicly visible and the published-consumer checks pass, an external project will use the versioned Plugin Portal declaration below:
+Apply the published plugin by version in an external project:
 
 ```kotlin
 plugins {
@@ -46,7 +49,8 @@ Then run the task explicitly:
 ./gradlew configContractCheck
 ```
 
-This is the intended published installation path, not a currently verified public-installation instruction. For the current source-checkout workflow, see the [usage guide](docs/usage-guide.md#quick-start).
+This is the supported public installation path. For source-checkout development guidance, see the
+[usage guide](docs/usage-guide.md#quick-start).
 
 ## How it works
 
