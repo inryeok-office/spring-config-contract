@@ -7,7 +7,7 @@ The roadmap is intentionally high-level. v0.1.0 is released. Planned post-v0.1 b
 The first usable release establishes the following end-to-end contract workflow:
 
 - Core configuration contract model and deterministic comparison rules.
-- Spring discovery for supported `@ConfigurationProperties`, `@Value`, and application configuration cases on the [tested compatibility line](compatibility.md).
+- Spring discovery for supported `@ConfigurationProperties`, `@Value`, and application configuration cases on the [tested compatibility version](compatibility.md).
 - Deployment parsing for `.env.example` and Docker Compose environment values.
 - Cross-module integration between Spring requirements and deployment-provided configuration.
 - A Gradle integration with the `configContractCheck` task and CI-friendly output.

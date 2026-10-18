@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Spring Config Contract is an early-stage developer tool that verifies whether configuration required by a Spring Boot application matches configuration supplied by deployment environments. The v0.1 workflow is implemented but the Gradle plugin is not yet published; keep infrastructure work separate from future feature work.
+Spring Config Contract is an early-stage developer tool that verifies whether configuration required by a Spring Boot application matches configuration supplied by deployment environments. The v0.1.0 release is published; keep infrastructure work separate from future feature work.
 
 ## Repository map
 

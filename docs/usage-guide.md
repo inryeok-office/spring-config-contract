@@ -15,11 +15,9 @@ passed for both the default Portal resolution path and the explicit Portal-plus-
 
 It reports a `MISSING` finding for a required key that deployment does not provide, and an `UNUSED` finding for a provided key that nothing in the application recognizes. It compares key presence only; values are never compared and never appear in the output.
 
-## Installation
+## Quick Start
 
-### Public Plugin Portal installation
-
-Apply the published plugin by version:
+Apply the published plugin by version in your application's `build.gradle.kts`:
 
 ```kotlin
 plugins {
@@ -33,15 +31,15 @@ configContract {
 }
 ```
 
-Run the task explicitly; it is not attached to `check`:
+The configured deployment input paths are relative to the project root. Every configured file must exist inside that project. Without an explicit `applicationConfigurationFiles` setting, top-level `application.properties`, `application.yml`, `application.yaml`, and their `application-<profile>` variants are discovered in the `main` resource directories.
+
+Put the deployment keys to check in the configured `.env.example` or Docker Compose `services.<name>.environment` file, then run the task explicitly; it is not attached to `check`:
 
 ```bash
 ./gradlew configContractCheck
 ```
 
-This is the supported public installation path. See the [publication guide](publication.md) for the release record.
-
-## Quick Start
+See [findings](#findings) for how to read the result and the [end-to-end example](#end-to-end-example) for a missing-key example. For tested versions, see [compatibility](compatibility.md).
 
 ### A. Verify from a clean checkout
 
@@ -57,13 +55,13 @@ cd spring-config-contract
 
 On Windows, use `gradlew.bat`. The build ends with `BUILD SUCCESSFUL` when every sample produces the report documented in [samples/README.md](../samples/README.md).
 
-### B. Source-checkout development
+### B. Try it on your own Spring project
 
-The plugin is applied by id, without a version, by including this repository as a build in your project's `settings.gradle.kts`.
+For source-checkout development, the plugin is applied by id without a version by including this repository as a build in your project's `settings.gradle.kts`.
 
 Requirements:
 
-- JDK 21 and Spring Boot 3.5.x, the targets listed in [compatibility](compatibility.md). Other versions are not claimed.
+- JDK 21 and Spring Boot 3.5.16, the versions listed in [compatibility](compatibility.md). Other Spring Boot versions are not claimed.
 - Network access, to resolve your project's Spring dependencies from the repository you declare, and the plugin's own dependencies when the included build is compiled.
 - Run Gradle with the Wrapper of the checkout you include. Other Gradle versions are not claimed.
 
@@ -238,7 +236,7 @@ General:
 - `configContractCheck` is not attached to `check`; CI must call it explicitly.
 - Only key presence is compared. Values are not compared or validated.
 - Only the `main` source set is analyzed.
-- Only Spring Boot 3.5.x and JDK 21 are targeted; see [compatibility](compatibility.md).
+- Only Spring Boot 3.5.16 and JDK 21 are claimed; see [compatibility](compatibility.md).
 
 Deployment files:
 

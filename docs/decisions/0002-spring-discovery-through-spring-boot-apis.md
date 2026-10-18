@@ -22,5 +22,5 @@ Consequently, `spring-boot` and `kotlin-reflect` are `implementation` dependenci
 
 - Behavior follows Spring Boot for the supported cases, and cross-check tests that start a real Spring Boot application detect divergence.
 - Callers must load application classes in a class loader where the application sees the same Spring Boot classes that this module uses. The Gradle integration ([#22](https://github.com/inryeok-office/spring-config-contract/issues/22)) owns building that class loader, for example with Gradle worker class-loader isolation.
-- The supported Spring Boot line is the version in the version catalog (3.5.x). Supporting another line requires evidence as described in [the compatibility policy](../compatibility.md).
+- v0.1.0 discovery is built and tested against Spring Boot 3.5.16, the version in the version catalog. Supporting another version requires evidence as described in [the compatibility policy](../compatibility.md).
 - Java field initializer and Kotlin default values are not recorded as defaults. The affected properties are still `OPTIONAL`, so comparison results do not change.

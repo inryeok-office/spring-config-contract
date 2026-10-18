@@ -25,7 +25,7 @@ See the [v0.1.0 release](https://github.com/inryeok-office/spring-config-contrac
 - Deterministic `MISSING` and `UNUSED` findings, with required, optional, and default-aware behavior.
 - The `configContractCheck` Gradle task, which fails non-zero when it finds either category.
 
-The task compares key presence; it does not compare values. See the [compatibility guide](docs/compatibility.md) for the tested JDK and Spring Boot line, and the [usage guide](docs/usage-guide.md#known-limitations-and-unsupported-inputs) for v0.1 limitations.
+The task compares key presence; it does not compare values. See the [compatibility guide](docs/compatibility.md) for the tested JDK and Spring Boot versions, and the [usage guide](docs/usage-guide.md#known-limitations-and-unsupported-inputs) for v0.1 limitations.
 
 ## Installation
 
@@ -43,6 +43,8 @@ configContract {
 }
 ```
 
+These paths are relative to the project root. Each configured file must exist inside that project; application configuration files in `src/main/resources` are discovered by default.
+
 Then run the task explicitly:
 
 ```bash
@@ -50,7 +52,7 @@ Then run the task explicitly:
 ```
 
 This is the supported public installation path. For source-checkout development guidance, see the
-[usage guide](docs/usage-guide.md#quick-start).
+[usage guide](docs/usage-guide.md#b-try-it-on-your-own-spring-project).
 
 ## How it works
 
@@ -82,10 +84,10 @@ MISSING app.api-key (com.example.AppSettings.apiKey)
 
 ## Documentation
 
-- [Usage guide](docs/usage-guide.md): installation states, DSL configuration, diagnostics, and limitations.
+- [Usage guide](docs/usage-guide.md): installation, configuration, findings, and limitations.
 - [Compatibility](docs/compatibility.md): supported JDK, Gradle Wrapper, Kotlin, and Spring Boot claims.
 - [Architecture](docs/architecture.md): module boundaries and dependency direction.
-- [Publication readiness](docs/publication.md): artifact topology, release gates, and recovery policy.
+- [Publication guide](docs/publication.md): artifact topology, release process, and recovery policy.
 - [Samples](samples/README.md): the offline end-to-end scenarios used by the build.
 
 ## Development and contributing

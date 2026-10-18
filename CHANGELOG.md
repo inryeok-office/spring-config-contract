@@ -12,7 +12,7 @@ All notable changes to this project will be documented here.
 - Added `.env.example` and Docker Compose `services.<name>.environment` deployment inputs.
 - Added the `io.github.inryeok-office.config-contract` Gradle plugin with `configContract` and `configContractCheck`; findings fail the task with a non-zero outcome.
 - Added offline end-to-end samples for valid, missing, unused, optional/default, and Kotlin binding scenarios.
-- Built and tested Spring discovery against Spring Boot 3.5.x on JDK 21; see [compatibility](docs/compatibility.md). Other Spring Boot lines are not claimed.
+- Built and tested Spring discovery against Spring Boot 3.5.16 on JDK 21; see [compatibility](docs/compatibility.md). Other Spring Boot versions are not claimed.
 - Known limitations include treating every Compose service environment as application-provided, skipping nested/collection/map `@ConfigurationProperties`, and requiring CI to invoke `configContractCheck` explicitly.
 - Published the v0.1.0 runtime modules (`config-contract-core`, `config-contract-spring`, and `config-contract-deployment`) to Maven Central.
 - Published `io.github.inryeok-office.config-contract` version `0.1.0` to the Gradle Plugin Portal.
