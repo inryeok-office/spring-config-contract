@@ -31,6 +31,8 @@ The task compares key presence; it does not compare values. See the [compatibili
 
 Apply the published plugin by version in an external project:
 
+Kotlin DSL (`build.gradle.kts`):
+
 ```kotlin
 plugins {
     java
@@ -40,6 +42,20 @@ plugins {
 configContract {
     dotenvExampleFiles.from("deploy/.env.example")
     composeFiles.from("deploy/compose.yml")
+}
+```
+
+Groovy DSL (`build.gradle`):
+
+```groovy
+plugins {
+    id 'java'
+    id 'io.github.inryeok-office.config-contract' version '0.1.0'
+}
+
+configContract {
+    dotenvExampleFiles.from('deploy/.env.example')
+    composeFiles.from('deploy/compose.yml')
 }
 ```
 

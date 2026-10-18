@@ -31,6 +31,20 @@ configContract {
 }
 ```
 
+Or use Groovy DSL in `build.gradle`:
+
+```groovy
+plugins {
+    id 'java'
+    id 'io.github.inryeok-office.config-contract' version '0.1.0'
+}
+
+configContract {
+    dotenvExampleFiles.from('deploy/.env.example')
+    composeFiles.from('deploy/compose.yml')
+}
+```
+
 The configured deployment input paths are relative to the project root. Every configured file must exist inside that project. Without an explicit `applicationConfigurationFiles` setting, top-level `application.properties`, `application.yml`, `application.yaml`, and their `application-<profile>` variants are discovered in the `main` resource directories.
 
 Put the deployment keys to check in the configured `.env.example` or Docker Compose `services.<name>.environment` file, then run the task explicitly; it is not attached to `check`:
@@ -75,6 +89,16 @@ pluginManagement {
 rootProject.name = "my-application"
 ```
 
+Or use Groovy DSL in `settings.gradle`:
+
+```groovy
+pluginManagement {
+    includeBuild('/path/to/spring-config-contract')
+}
+
+rootProject.name = 'my-application'
+```
+
 On Windows, use a forward-slash absolute path such as `C:/path/to/spring-config-contract`. Git Bash style `/c/...` paths are not resolved by Gradle.
 
 `build.gradle.kts`:
@@ -97,6 +121,30 @@ configContract {
     activeProfiles.set(listOf("prod"))        // optional; empty analyzes the default profile
     dotenvExampleFiles.from("deploy/.env.example")   // optional
     composeFiles.from("deploy/compose.yml")          // optional
+    // applicationConfigurationFiles defaults to the top-level application*.properties|yml|yaml files in main resources
+}
+```
+
+Or use Groovy DSL in `build.gradle`:
+
+```groovy
+plugins {
+    id 'java'
+    id 'io.github.inryeok-office.config-contract'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation('org.springframework.boot:spring-boot:3.5.16')
+}
+
+configContract {
+    activeProfiles.set(['prod'])             // optional; empty analyzes the default profile
+    dotenvExampleFiles.from('deploy/.env.example')   // optional
+    composeFiles.from('deploy/compose.yml')          // optional
     // applicationConfigurationFiles defaults to the top-level application*.properties|yml|yaml files in main resources
 }
 ```
@@ -217,6 +265,19 @@ plugins {
 
 configContract {
     dotenvExampleFiles.from("deploy/.env.example")
+}
+```
+
+Or use Groovy DSL in `build.gradle`:
+
+```groovy
+plugins {
+    id 'java'
+    id 'io.github.inryeok-office.config-contract'
+}
+
+configContract {
+    dotenvExampleFiles.from('deploy/.env.example')
 }
 ```
 
