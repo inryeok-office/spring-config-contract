@@ -83,6 +83,16 @@ class SampleProjectsFunctionalTest {
     }
 
     @Test
+    fun `profile-specific-configuration sample passes when deployment satisfies the selected prod profile`() {
+        copySample("profile-specific-configuration")
+
+        val result = run(sampleInitScript())
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(TASK)?.outcome)
+        assertTrue(result.output.contains("Configuration contract check passed: no findings"), result.output)
+    }
+
+    @Test
     fun `kotlin-binding sample reports only the Kotlin non-null parameter without a default`() {
         copySample("kotlin-binding")
 
