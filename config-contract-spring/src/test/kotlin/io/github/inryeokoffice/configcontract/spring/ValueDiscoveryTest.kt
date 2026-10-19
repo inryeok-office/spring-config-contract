@@ -5,6 +5,7 @@ import io.github.inryeokoffice.configcontract.core.ConfigurationRequirement.Pres
 import io.github.inryeokoffice.configcontract.spring.SpringDiscoveryDiagnostic.Kind
 import io.github.inryeokoffice.configcontract.spring.fixtures.EscapedValueConsumer
 import io.github.inryeokoffice.configcontract.spring.fixtures.JavaValueFixture
+import io.github.inryeokoffice.configcontract.spring.fixtures.KotlinScheduledFixture
 import io.github.inryeokoffice.configcontract.spring.fixtures.KotlinValueFixture
 import io.github.inryeokoffice.configcontract.spring.fixtures.SharedKeyFixture
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -98,5 +99,33 @@ class ValueDiscoveryTest {
         assertEquals(DefaultValue.Present("same"), result.requirement("fixture.shared.agreed").defaultValue)
         assertEquals(Presence.REQUIRED, result.requirement("fixture.shared.strict").presence)
         assertEquals(DefaultValue.Absent, result.requirement("fixture.shared.strict").defaultValue)
+    }
+
+    @Test
+    fun `Scheduled attributes resolve placeholders like Value, including repeated annotations`() {
+        val result = discover(KotlinScheduledFixture::class.java)
+        val type = KotlinScheduledFixture::class.java.name
+
+        assertEquals(
+            listOf(
+                requirement("fixture.scheduled.cron", Presence.REQUIRED, source = "$type.cron()"),
+                requirement("fixture.scheduled.delay", Presence.REQUIRED, source = "$type.repeated()"),
+                requirement("fixture.scheduled.initial", Presence.OPTIONAL, DefaultValue.Present("0"), "$type.repeated()"),
+                requirement("fixture.scheduled.rate", Presence.REQUIRED, source = "$type.repeated()"),
+                requirement("fixture.scheduled.zone", Presence.OPTIONAL, DefaultValue.Present("UTC"), "$type.cron()"),
+            ),
+            result.requirements,
+        )
+    }
+
+    @Test
+    fun `SpEL in a Scheduled attribute is reported as unsupported`() {
+        val result = discover(KotlinScheduledFixture::class.java)
+
+        assertFalse(result.hasRequirement("fixture.scheduled.spel"))
+        assertEquals(
+            listOf("SpEL expressions in @Scheduled are not interpreted; no key is discovered"),
+            result.diagnosticsAt("${KotlinScheduledFixture::class.java.name}.spel()").map { it.message },
+        )
     }
 }

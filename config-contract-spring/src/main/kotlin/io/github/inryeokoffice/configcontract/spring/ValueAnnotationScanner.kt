@@ -6,13 +6,16 @@ import io.github.inryeokoffice.configcontract.core.SourceMetadata
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName
 import org.springframework.core.DefaultParameterNameDiscoverer
+import org.springframework.scheduling.annotation.Scheduled
 import java.lang.reflect.Constructor
 import java.lang.reflect.Executable
 import java.lang.reflect.Method
 
 /**
  * Discovers requirements from `@Value` declared directly on fields, methods,
- * constructor parameters, and method parameters.
+ * constructor parameters, and method parameters, and from the `cron`, `zone`,
+ * `fixedDelayString`, `fixedRateString`, and `initialDelayString` attributes of
+ * `@Scheduled` declared directly on methods.
  *
  * `${key}` is required and `${key:default}` is optional with that default,
  * assuming Spring Boot's placeholder auto-configuration is active. SpEL
@@ -38,9 +41,17 @@ internal class ValueAnnotationScanner(
             .filterNot { it.isSynthetic || it.isBridge }
             .forEach { method ->
                 method.getDeclaredAnnotation(Value::class.java)?.let { inspect("${type.name}.${method.name}()", it.value) }
+                // getDeclaredAnnotationsByType also unwraps the repeatable @Schedules container.
+                method.getDeclaredAnnotationsByType(Scheduled::class.java).forEach { scheduled ->
+                    scheduledExpressions(scheduled).forEach { inspect("${type.name}.${method.name}()", it, "@Scheduled") }
+                }
                 scanParameters("${type.name}.${method.name}", method)
             }
     }
+
+    /** The `@Scheduled` attributes Spring resolves through the embedded value resolver. */
+    private fun scheduledExpressions(scheduled: Scheduled): List<String> =
+        listOf(scheduled.cron, scheduled.zone, scheduled.fixedDelayString, scheduled.fixedRateString, scheduled.initialDelayString)
 
     private fun scanParameters(
         owner: String,
@@ -66,9 +77,10 @@ internal class ValueAnnotationScanner(
     private fun inspect(
         location: String,
         expression: String,
+        annotation: String = "@Value",
     ) {
         if ("#{" in expression) {
-            collector.unsupported(location, "SpEL expressions in @Value are not interpreted; no key is discovered")
+            collector.unsupported(location, "SpEL expressions in $annotation are not interpreted; no key is discovered")
             return
         }
         for (placeholder in PlaceholderParser.parse(expression)) {

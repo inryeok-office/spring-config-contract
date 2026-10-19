@@ -1,11 +1,15 @@
 package io.github.inryeokoffice.configcontract.spring.fixtures
 
+import io.github.inryeokoffice.configcontract.spring.spike.PlaceholderConfiguration
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.validation.annotation.Validated
 
 @ConfigurationProperties("fixture.kotlin")
@@ -136,3 +140,65 @@ class SetterVisibilityConfiguration
 class EscapedValueConsumer(
     @Value("\\\${crosscheck.escaped}") val value: String,
 )
+
+class KotlinScheduledFixture {
+    @Scheduled(cron = "\${fixture.scheduled.cron}", zone = "\${fixture.scheduled.zone:UTC}")
+    fun cron() = Unit
+
+    @Scheduled(fixedDelayString = "\${fixture.scheduled.delay}")
+    @Scheduled(fixedRateString = "\${fixture.scheduled.rate}", initialDelayString = "\${fixture.scheduled.initial:0}")
+    fun repeated() = Unit
+
+    @Scheduled(cron = "#{'\${fixture.scheduled.spel}'}")
+    fun spel() = Unit
+}
+
+// Each consumer is its own configuration so Spring registers its @Scheduled method; tasks never fire during a check.
+
+@Configuration(proxyBeanMethods = false)
+@EnableScheduling
+@Import(PlaceholderConfiguration::class)
+class ScheduledCronConsumer {
+    @Scheduled(cron = "\${crosscheck.scheduled.cron}")
+    fun run() = Unit
+}
+
+@Configuration(proxyBeanMethods = false)
+@EnableScheduling
+@Import(PlaceholderConfiguration::class)
+class ScheduledDefaultedCronConsumer {
+    @Scheduled(cron = "\${crosscheck.scheduled.defaulted-cron:0 0 0 1 1 *}")
+    fun run() = Unit
+}
+
+@Configuration(proxyBeanMethods = false)
+@EnableScheduling
+@Import(PlaceholderConfiguration::class)
+class ScheduledZoneConsumer {
+    @Scheduled(cron = "0 0 0 1 1 *", zone = "\${crosscheck.scheduled.zone}")
+    fun run() = Unit
+}
+
+@Configuration(proxyBeanMethods = false)
+@EnableScheduling
+@Import(PlaceholderConfiguration::class)
+class ScheduledFixedDelayConsumer {
+    @Scheduled(fixedDelayString = "\${crosscheck.scheduled.fixed-delay}")
+    fun run() = Unit
+}
+
+@Configuration(proxyBeanMethods = false)
+@EnableScheduling
+@Import(PlaceholderConfiguration::class)
+class ScheduledFixedRateConsumer {
+    @Scheduled(fixedRateString = "\${crosscheck.scheduled.fixed-rate}")
+    fun run() = Unit
+}
+
+@Configuration(proxyBeanMethods = false)
+@EnableScheduling
+@Import(PlaceholderConfiguration::class)
+class ScheduledInitialDelayConsumer {
+    @Scheduled(fixedDelay = 3_600_000, initialDelayString = "\${crosscheck.scheduled.initial-delay}")
+    fun run() = Unit
+}

@@ -10,7 +10,7 @@ passed for both the default Portal resolution path and the explicit Portal-plus-
 
 `configContractCheck` reads two sides of a contract:
 
-- **Requirements** that Spring Boot code and application configuration declare: `@ConfigurationProperties`, `@Value`, and `application*.properties|yml|yaml`.
+- **Requirements** that Spring Boot code and application configuration declare: `@ConfigurationProperties`, `@Value`, `@Scheduled`, and `application*.properties|yml|yaml`.
 - **Provided configuration** that deployment files supply: `.env.example` files and the `environment` entries of Docker Compose services.
 
 It reports a `MISSING` finding for a required key that deployment does not provide, and an `UNUSED` finding for a provided key that nothing in the application recognizes. It compares key presence only; values are never compared and never appear in the output.
@@ -137,6 +137,7 @@ Deployment and application configuration files must resolve inside the root proj
 | --- | --- |
 | `@ConfigurationProperties` on a class (Java bean, constructor binding, Kotlin) | One key per single-value property, named `<prefix>.<dashed-property-name>`. A property is required only for a Kotlin non-null constructor parameter that has no Kotlin default and no `@DefaultValue`. Every other property is optional. A single-value `@DefaultValue` is recorded as the default. |
 | `@Value` on a field, method, constructor parameter, or method parameter | `${key}` is a required key. `${key:default}` is an optional key with that default, including an empty default. |
+| `@Scheduled` on a method: `cron`, `zone`, `fixedDelayString`, `fixedRateString`, and `initialDelayString` | Placeholders are discovered with the same rules as `@Value`. |
 | `application.properties`, `application.yml`, `application.yaml`, and `application-<profile>.*` | Each effective key is an optional key whose default is the configured value, so deployment can override it without being reported as unused. A `${NAME}` or `${NAME:default}` placeholder inside a value is a requirement, as with `@Value`. |
 
 Single-value property types are `String`, primitives and their wrappers, enums, `BigDecimal`, `BigInteger`, `Duration`, `Period`, `Charset`, `Locale`, `UUID`, `URI`, `URL`, and `DataSize`.
@@ -249,7 +250,8 @@ Spring discovery:
 
 - Nested, collection, and map `@ConfigurationProperties` types are not checked; keys under them are skipped.
 - `@ConfigurationProperties` on a `@Bean` method is not supported, and `@Validated` and Bean Validation constraints do not change whether a key is required.
-- SpEL expressions in `@Value` (`#{...}`) are not interpreted.
+- SpEL expressions in `@Value` and `@Scheduled` (`#{...}`) are not interpreted.
+- Placeholders in other annotation attributes, such as `@KafkaListener` topics or `@RequestMapping` paths, and in annotations meta-annotated with `@Value` are not discovered.
 - Placeholders nested in a default value are not interpreted; the raw default text is recorded.
 - Java field initializers and Kotlin default arguments are not evaluated, because that would run application code.
 - Active profiles are never inferred from deployment input or from the application configuration. `spring.profiles.active`, `spring.profiles.include`, `spring.profiles.group`, `spring.config.import`, `spring.config.location`, `spring.config.additional-location`, and `spring.config.name` are not applied. Profile expressions and `spring.config.activate.on-cloud-platform` are not supported.

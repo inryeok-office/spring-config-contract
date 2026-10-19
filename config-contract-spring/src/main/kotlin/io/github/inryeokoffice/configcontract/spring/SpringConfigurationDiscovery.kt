@@ -18,6 +18,9 @@ import io.github.inryeokoffice.configcontract.core.ConfigurationRequirement.Pres
  * - `@Value` declared directly on a field, method, or parameter. `${key}` is
  *   `REQUIRED`; `${key:default}` is `OPTIONAL` with that default, including the
  *   empty default. This assumes Spring Boot's placeholder auto-configuration.
+ * - `@Scheduled` declared directly on a method. Placeholders in `cron`, `zone`,
+ *   `fixedDelayString`, `fixedRateString`, and `initialDelayString` follow the
+ *   `@Value` rules.
  * - Application configuration files for the explicit input profiles. Each
  *   effective key is an `OPTIONAL` requirement whose default is the configured
  *   text, so deployment may override it without being reported as unused.

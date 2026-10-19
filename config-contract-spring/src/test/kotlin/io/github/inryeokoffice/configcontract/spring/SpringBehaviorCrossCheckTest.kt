@@ -22,6 +22,12 @@ import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredIntConfigu
 import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredIntProperties
 import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredStringConfiguration
 import io.github.inryeokoffice.configcontract.spring.fixtures.RequiredStringProperties
+import io.github.inryeokoffice.configcontract.spring.fixtures.ScheduledCronConsumer
+import io.github.inryeokoffice.configcontract.spring.fixtures.ScheduledDefaultedCronConsumer
+import io.github.inryeokoffice.configcontract.spring.fixtures.ScheduledFixedDelayConsumer
+import io.github.inryeokoffice.configcontract.spring.fixtures.ScheduledFixedRateConsumer
+import io.github.inryeokoffice.configcontract.spring.fixtures.ScheduledInitialDelayConsumer
+import io.github.inryeokoffice.configcontract.spring.fixtures.ScheduledZoneConsumer
 import io.github.inryeokoffice.configcontract.spring.fixtures.SetterVisibilityConfiguration
 import io.github.inryeokoffice.configcontract.spring.fixtures.SetterVisibilityProperties
 import io.github.inryeokoffice.configcontract.spring.spike.PlaceholderConfiguration
@@ -146,6 +152,12 @@ class SpringBehaviorCrossCheckTest {
                 Arguments.of(JavaRecordFixture::class.java, JavaRecordConfiguration::class.java),
                 Arguments.of(JavaBeanFixture::class.java, JavaBeanConfiguration::class.java),
                 Arguments.of(KotlinMutableFixture::class.java, KotlinMutableConfiguration::class.java),
+                Arguments.of(ScheduledCronConsumer::class.java, ScheduledCronConsumer::class.java),
+                Arguments.of(ScheduledDefaultedCronConsumer::class.java, ScheduledDefaultedCronConsumer::class.java),
+                Arguments.of(ScheduledFixedDelayConsumer::class.java, ScheduledFixedDelayConsumer::class.java),
+                Arguments.of(ScheduledFixedRateConsumer::class.java, ScheduledFixedRateConsumer::class.java),
+                Arguments.of(ScheduledInitialDelayConsumer::class.java, ScheduledInitialDelayConsumer::class.java),
+                Arguments.of(ScheduledZoneConsumer::class.java, ScheduledZoneConsumer::class.java),
             )
 
         @JvmStatic

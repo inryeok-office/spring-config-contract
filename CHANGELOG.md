@@ -4,6 +4,8 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Spring discovery now reads placeholders in `@Scheduled` `cron`, `zone`, `fixedDelayString`, `fixedRateString`, and `initialDelayString` attributes with the same rules as `@Value` ([#80](https://github.com/inryeok-office/spring-config-contract/issues/80)).
+
 ## v0.1.0 - 2026-10-18
 
 - Added the initial multi-module Kotlin/Gradle project infrastructure.
