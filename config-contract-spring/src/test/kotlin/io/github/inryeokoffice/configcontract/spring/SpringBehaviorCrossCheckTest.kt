@@ -33,7 +33,9 @@ import io.github.inryeokoffice.configcontract.spring.fixtures.SetterVisibilityPr
 import io.github.inryeokoffice.configcontract.spring.spike.PlaceholderConfiguration
 import io.github.inryeokoffice.configcontract.spring.spike.SpikeApplication
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -58,6 +60,21 @@ class SpringBehaviorCrossCheckTest {
         val springFailed = runCatching { SpikeApplication.run(configuration).close() }.isFailure
 
         assertEquals(springFailed, discoveredRequired)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("scheduledPlaceholderCases")
+    fun `Spring fails on the missing Scheduled placeholder that discovery requires`(
+        consumer: Class<*>,
+        key: String,
+    ) {
+        val error = assertThrows<Exception> { SpikeApplication.run(consumer).close() }
+
+        assertTrue(
+            SpikeApplication.rootCauseMessage(error).contains("Could not resolve placeholder '$key'"),
+            SpikeApplication.rootCauseMessage(error),
+        )
+        assertEquals(listOf(key), discover(consumer).requirements.filter { it.presence == Presence.REQUIRED }.map { it.key.value })
     }
 
     @ParameterizedTest(name = "profiles={0}")
@@ -152,12 +169,18 @@ class SpringBehaviorCrossCheckTest {
                 Arguments.of(JavaRecordFixture::class.java, JavaRecordConfiguration::class.java),
                 Arguments.of(JavaBeanFixture::class.java, JavaBeanConfiguration::class.java),
                 Arguments.of(KotlinMutableFixture::class.java, KotlinMutableConfiguration::class.java),
-                Arguments.of(ScheduledCronConsumer::class.java, ScheduledCronConsumer::class.java),
                 Arguments.of(ScheduledDefaultedCronConsumer::class.java, ScheduledDefaultedCronConsumer::class.java),
-                Arguments.of(ScheduledFixedDelayConsumer::class.java, ScheduledFixedDelayConsumer::class.java),
-                Arguments.of(ScheduledFixedRateConsumer::class.java, ScheduledFixedRateConsumer::class.java),
-                Arguments.of(ScheduledInitialDelayConsumer::class.java, ScheduledInitialDelayConsumer::class.java),
-                Arguments.of(ScheduledZoneConsumer::class.java, ScheduledZoneConsumer::class.java),
+            )
+
+        // The defaulted consumer stays in requirednessCases as the control that starts successfully.
+        @JvmStatic
+        fun scheduledPlaceholderCases(): List<Arguments> =
+            listOf(
+                Arguments.of(ScheduledCronConsumer::class.java, "crosscheck.scheduled.cron"),
+                Arguments.of(ScheduledZoneConsumer::class.java, "crosscheck.scheduled.zone"),
+                Arguments.of(ScheduledFixedDelayConsumer::class.java, "crosscheck.scheduled.fixed-delay"),
+                Arguments.of(ScheduledFixedRateConsumer::class.java, "crosscheck.scheduled.fixed-rate"),
+                Arguments.of(ScheduledInitialDelayConsumer::class.java, "crosscheck.scheduled.initial-delay"),
             )
 
         @JvmStatic
