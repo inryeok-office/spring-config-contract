@@ -1,0 +1,5 @@
+services:
+  app:
+    image: example/goms:1.0
+    environment:
+      SPRING_APPLICATION_NAME: goms

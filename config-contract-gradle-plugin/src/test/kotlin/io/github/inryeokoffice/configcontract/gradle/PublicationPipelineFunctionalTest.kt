@@ -30,6 +30,7 @@ class PublicationPipelineFunctionalTest {
         val central = workspace.resolve("central")
         val portal = workspace.resolve("portal")
         val thirdParty = workspace.resolve("third-party")
+        val compatibilityProbe = workspace.resolve("spring-boot-compatibility-probe")
         val producer = workspace.resolve("producer")
         copyProducer(producer)
         val signing = ephemeralSigningKey(workspace.toPath())
@@ -43,6 +44,7 @@ class PublicationPipelineFunctionalTest {
                     "-PcentralLikeRepository=${central.absolutePath}",
                     "-PportalLikeRepository=${portal.absolutePath}",
                     "-PthirdPartyRepository=${thirdParty.absolutePath}",
+                    "-PspringBootCompatibilityProbeRepository=${compatibilityProbe.absolutePath}",
                     environment = signing.environment,
                 )
 
@@ -76,6 +78,8 @@ class PublicationPipelineFunctionalTest {
             val coexistenceResult = runConsumer(coexistence, "configContractCheck")
             assertTrue(coexistenceResult.output.contains("BUILD SUCCESSFUL"), coexistenceResult.output)
 
+            assertSpringBootCompatibilityProbeConsumer(central, portal, compatibilityProbe)
+
             assertTrue(thirdParty.deleteRecursively(), "Could not remove the disposable third-party repository")
             val reused =
                 runProducerWithConfigurationCache(
@@ -85,6 +89,7 @@ class PublicationPipelineFunctionalTest {
                     "-PcentralLikeRepository=${central.absolutePath}",
                     "-PportalLikeRepository=${portal.absolutePath}",
                     "-PthirdPartyRepository=${thirdParty.absolutePath}",
+                    "-PspringBootCompatibilityProbeRepository=${compatibilityProbe.absolutePath}",
                     environment = signing.environment,
                 )
             assertEquals(0, reused.exitCode, reused.output)
@@ -225,6 +230,102 @@ class PublicationPipelineFunctionalTest {
         )
     }
 
+    /**
+     * A consumer on the probed Spring Boot line runs the plugin's Spring Boot 3.5 discovery runtime next to the
+     * spring-core version raised by that line's Gradle plugin, and compiles against the probed Spring Boot. Exact
+     * findings prove that discovery ran instead of passing vacuously. See issue #70.
+     */
+    private fun assertSpringBootCompatibilityProbeConsumer(
+        central: File,
+        portal: File,
+        compatibilityProbe: File,
+    ) {
+        val failing = workspace.resolve("consumer-spring-boot-compatibility-probe")
+        writeCompatibilityProbeConsumer(failing, central, portal, compatibilityProbe)
+        failing.resolve(".env.example").writeText(
+            "APP_SERVICE_ENDPOINT=https://service.example\nAPP_SERVICE_TIMEOUT=10s\nAPP_REGION=eu\nDB_PASSWORD=example\n" +
+                "LEGACY_FLAG=true\n",
+            Charsets.UTF_8,
+        )
+        val failingResult = runConsumerAndFail(failing, "configContractCheck")
+        listOf(
+            "Configuration contract check failed: 2 findings (1 missing, 1 unused)",
+            "UNUSED  LEGACY_FLAG (.env.example:5)",
+            "MISSING app.notify.url (com.example.Notifier.notifyUrl)",
+        ).forEach { line -> assertTrue(failingResult.output.contains(line), failingResult.output) }
+
+        val buildEnvironment = runConsumer(failing, "buildEnvironment")
+        val discoverySpringBoot = "org.springframework.boot:spring-boot:${System.getProperty("configContract.springBootVersion")}"
+        assertTrue(
+            buildEnvironment.output.contains(discoverySpringBoot) &&
+                buildEnvironment.output.contains("org.springframework:spring-core:7."),
+            "The fixture no longer mixes the plugin's Spring Boot with spring-core 7 on the build script classpath.\n" +
+                buildEnvironment.output,
+        )
+
+        val passing = workspace.resolve("consumer-spring-boot-compatibility-probe-passing")
+        writeCompatibilityProbeConsumer(passing, central, portal, compatibilityProbe)
+        passing.resolve(".env.example").writeText(
+            "APP_SERVICE_ENDPOINT=https://service.example\nAPP_SERVICE_TIMEOUT=10s\nAPP_REGION=eu\nDB_PASSWORD=example\n" +
+                "APP_NOTIFY_URL=https://notify.example\n",
+            Charsets.UTF_8,
+        )
+        val passingResult = runConsumer(passing, "configContractCheck")
+        assertTrue(passingResult.output.contains("Configuration contract check passed: no findings"), passingResult.output)
+    }
+
+    private fun writeCompatibilityProbeConsumer(
+        project: File,
+        central: File,
+        portal: File,
+        compatibilityProbe: File,
+    ) {
+        writeConsumer(
+            project,
+            central,
+            portal,
+            compatibilityProbe.resolve("plugins"),
+            ConsumerKind.SPRING_BOOT_COMPATIBILITY_PROBE,
+            "dotenvExampleFiles.from('.env.example')",
+            applicationRepository = compatibilityProbe.resolve("application"),
+        )
+        val sources = project.resolve("src/main/java/com/example").apply { mkdirs() }
+        sources.resolve("ServiceProperties.java").writeText(
+            """
+            package com.example;
+
+            import java.time.Duration;
+            import org.springframework.boot.context.properties.ConfigurationProperties;
+            import org.springframework.boot.context.properties.bind.DefaultValue;
+
+            @ConfigurationProperties("app.service")
+            public record ServiceProperties(String endpoint, @DefaultValue("30s") Duration timeout) {
+            }
+            """.trimIndent() + "\n",
+            Charsets.UTF_8,
+        )
+        sources.resolve("Notifier.java").writeText(
+            """
+            package com.example;
+
+            import org.springframework.beans.factory.annotation.Value;
+
+            public class Notifier {
+                @Value("${'$'}{app.notify.url}")
+                private String notifyUrl;
+
+                @Value("${'$'}{app.region:us}")
+                private String region;
+            }
+            """.trimIndent() + "\n",
+            Charsets.UTF_8,
+        )
+        project.resolve("src/main/resources").apply { mkdirs() }.resolve("application.yml").writeText(
+            "app:\n  db:\n    password: \${DB_PASSWORD}\n",
+            Charsets.UTF_8,
+        )
+    }
+
     private fun assertSignedCentralArtifacts(
         central: File,
         signing: EphemeralSigningKey,
@@ -293,6 +394,7 @@ class PublicationPipelineFunctionalTest {
         thirdParty: File,
         kind: ConsumerKind,
         extension: String,
+        applicationRepository: File = thirdParty,
     ) {
         project.mkdirs()
         val repositories =
@@ -309,7 +411,7 @@ $repositories
             dependencyResolutionManagement {
                 repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
                 repositories {
-                    maven { url = uri('${thirdParty.toURI()}') }
+                    maven { url = uri('${applicationRepository.toURI()}') }
                 }
             }
             rootProject.name = 'publication-consumer'
@@ -347,6 +449,22 @@ $repositories
 
                     dependencies {
                         implementation 'org.springframework.boot:spring-boot:${System.getProperty("configContract.springBootVersion")}'
+                    }
+
+                    configContract {
+                        $extension
+                    }
+                    """
+                ConsumerKind.SPRING_BOOT_COMPATIBILITY_PROBE ->
+                    """
+                    plugins {
+                        id 'java'
+                        id 'org.springframework.boot' version '$compatibilityProbeSpringBootVersion'
+                        id '$PLUGIN_ID' version '$TEST_VERSION'
+                    }
+
+                    dependencies {
+                        implementation 'org.springframework.boot:spring-boot:$compatibilityProbeSpringBootVersion'
                     }
 
                     configContract {
@@ -523,6 +641,9 @@ $repositories
     private val rootProject: File
         get() = File(requireNotNull(System.getProperty("configContract.rootProjectDir")))
 
+    private val compatibilityProbeSpringBootVersion: String
+        get() = requireNotNull(System.getProperty("configContract.compatibilityProbeSpringBootVersion"))
+
     private fun ephemeralSigningKey(workspace: Path): EphemeralSigningKey {
         val home = createGpgHome(workspace)
         val passphrase = "publication-verification-passphrase"
@@ -593,6 +714,7 @@ $repositories
     private enum class ConsumerKind {
         MINIMAL,
         SPRING_BOOT_AND_KOTLIN,
+        SPRING_BOOT_COMPATIBILITY_PROBE,
     }
 
     private inner class EphemeralSigningKey(

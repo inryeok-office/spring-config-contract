@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: goms
+goms:
+  db:
+    password: ${DB_PASSWORD}
+    pool-size: 10

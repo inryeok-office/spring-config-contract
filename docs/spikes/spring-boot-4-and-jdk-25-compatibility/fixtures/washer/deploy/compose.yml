@@ -1,0 +1,6 @@
+services:
+  app:
+    image: example/washer:1.0
+    environment:
+      DB_PASSWORD: example
+      APP_REGION: eu

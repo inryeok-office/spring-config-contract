@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: ctl-demo
+app:
+  datasource-url: ${DATABASE_URL}
+  cache-ttl: ${CACHE_TTL:60s}

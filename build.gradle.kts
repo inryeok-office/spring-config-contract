@@ -532,11 +532,33 @@ dependencies {
     )
 }
 
-val seedThirdPartyRuntimeRepository = tasks.register<SeedThirdPartyRuntimeRepositoryTask>("seedThirdPartyRuntimeRepository") {
+fun registerSeedTask(
+    name: String,
+    taskDescription: String,
+    runtime: Configuration,
+    repository: Provider<File>,
+    markers: List<String>,
+) = tasks.register<SeedThirdPartyRuntimeRepositoryTask>(name) {
     group = "verification"
-    description = "Copies the resolved third-party plugin runtime graph into a disposable Maven repository."
-    repositoryDirectory.fileValue(thirdPartyRuntimeRepository)
-    pluginMarkers.set(
+    description = taskDescription
+    repositoryDirectory.fileProvider(repository)
+    pluginMarkers.set(markers)
+
+    val publicationProjectGroup = project.group.toString()
+    val resolvedRootComponent = runtime.incoming.resolutionResult.rootComponent
+    val artifacts = runtime.incoming.artifacts.resolvedArtifacts
+    projectGroup.set(publicationProjectGroup)
+    rootComponent.set(resolvedRootComponent)
+    resolvedArtifacts.set(artifacts)
+    sourceArtifacts.from(runtime.incoming.artifacts.artifactFiles)
+}
+
+val seedThirdPartyRuntimeRepository =
+    registerSeedTask(
+        "seedThirdPartyRuntimeRepository",
+        "Copies the resolved third-party plugin runtime graph into a disposable Maven repository.",
+        publicationVerificationRuntime,
+        provider { thirdPartyRuntimeRepository },
         listOf(
             "org.springframework.boot:org.springframework.boot.gradle.plugin:${libs.versions.spring.boot.get()}:" +
                 "org.springframework.boot:spring-boot-gradle-plugin:${libs.versions.spring.boot.get()}",
@@ -545,19 +567,64 @@ val seedThirdPartyRuntimeRepository = tasks.register<SeedThirdPartyRuntimeReposi
         ),
     )
 
-    val publicationProjectGroup = project.group.toString()
-    val resolvedRootComponent = publicationVerificationRuntime.incoming.resolutionResult.rootComponent
-    val artifacts = publicationVerificationRuntime.incoming.artifacts.resolvedArtifacts
-    projectGroup.set(publicationProjectGroup)
-    rootComponent.set(resolvedRootComponent)
-    resolvedArtifacts.set(artifacts)
-    sourceArtifacts.from(publicationVerificationRuntime.incoming.artifacts.artifactFiles)
+// A Spring Boot 4 consumer resolves two different graphs: the build script classpath, where Spring Boot's 4.x
+// Gradle plugin raises spring-core under the plugin's Spring Boot 3.5 discovery runtime, and the application
+// classpath compiled against Spring Boot 4.x. They are seeded into separate repositories so each offline
+// resolution sees exactly the graph such a consumer would resolve. See issue #70.
+val springBootCompatibilityProbeRepository =
+    providers.gradleProperty("springBootCompatibilityProbeRepository")
+        .orNull
+        ?.takeIf { it.isNotBlank() }
+        ?.let(::file)
+        ?: layout.buildDirectory.dir("publication-verification/spring-boot-compatibility-probe").get().asFile
+
+val springBootCompatibilityProbePluginRuntime = configurations.create("springBootCompatibilityProbePluginRuntime") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    description = "Build script graph of a consumer applying the plugin next to the probed Spring Boot Gradle plugin."
 }
+
+val springBootCompatibilityProbeApplicationRuntime = configurations.create("springBootCompatibilityProbeApplicationRuntime") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    description = "Application graph of a consumer compiled against the probed Spring Boot version."
+}
+
+dependencies {
+    val probedSpringBoot = libs.versions.compatibility.probe.spring.boot.get()
+    add(springBootCompatibilityProbePluginRuntime.name, project(":config-contract-gradle-plugin"))
+    add(springBootCompatibilityProbePluginRuntime.name, "org.springframework.boot:spring-boot-gradle-plugin:$probedSpringBoot")
+    add(springBootCompatibilityProbeApplicationRuntime.name, "org.springframework.boot:spring-boot:$probedSpringBoot")
+}
+
+val seedSpringBootCompatibilityProbePluginRepository =
+    registerSeedTask(
+        "seedSpringBootCompatibilityProbePluginRepository",
+        "Copies the probed Spring Boot consumer's build script graph into a disposable Maven repository.",
+        springBootCompatibilityProbePluginRuntime,
+        provider { springBootCompatibilityProbeRepository.resolve("plugins") },
+        listOf(
+            "org.springframework.boot:org.springframework.boot.gradle.plugin:" +
+                "${libs.versions.compatibility.probe.spring.boot.get()}:" +
+                "org.springframework.boot:spring-boot-gradle-plugin:${libs.versions.compatibility.probe.spring.boot.get()}",
+        ),
+    )
+
+val seedSpringBootCompatibilityProbeApplicationRepository =
+    registerSeedTask(
+        "seedSpringBootCompatibilityProbeApplicationRepository",
+        "Copies the probed Spring Boot consumer's application graph into a disposable Maven repository.",
+        springBootCompatibilityProbeApplicationRuntime,
+        provider { springBootCompatibilityProbeRepository.resolve("application") },
+        emptyList(),
+    )
 
 val preparePublicationVerification = tasks.register("preparePublicationVerification") {
     group = "verification"
     description = "Publishes disposable Central-like and Portal-like repositories for offline consumer verification."
     dependsOn(seedThirdPartyRuntimeRepository)
+    dependsOn(seedSpringBootCompatibilityProbePluginRepository)
+    dependsOn(seedSpringBootCompatibilityProbeApplicationRepository)
     dependsOn(
         publicationDescriptions.keys.map { publicationProject ->
             project(publicationProject).tasks.named("publishAllPublicationsToCentralLikeRepository")

@@ -1,0 +1,9 @@
+services:
+  app:
+    image: example/goms:1.0
+    environment:
+      GOMS_FEATURE_OWNER: platform-team
+      GOMS_FEATURE_BETA: "true"
+      DB_PASSWORD: example-password
+      GOMS_DB_POOL_SIZE: "20"
+      SPRING_APPLICATION_NAME: goms
