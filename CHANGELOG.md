@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 - Spring discovery now reads placeholders in `@Scheduled` `cron`, `zone`, `fixedDelayString`, `fixedRateString`, and `initialDelayString` attributes with the same rules as `@Value` ([#80](https://github.com/inryeok-office/spring-config-contract/issues/80)).
+- Recorded the Spring Boot 4 and JDK 25 compatibility investigation with its manual consumer fixtures, and added offline regression tests for a Spring Boot 4 consumer and for application bytecode newer than the Gradle JVM; support claims are unchanged ([#70](https://github.com/inryeok-office/spring-config-contract/issues/70)).
 
 ## v0.1.0 - 2026-10-18
 

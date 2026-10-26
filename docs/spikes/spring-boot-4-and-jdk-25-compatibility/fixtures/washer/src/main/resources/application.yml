@@ -1,0 +1,4 @@
+app:
+  greeting: hello
+  db:
+    password: ${DB_PASSWORD}

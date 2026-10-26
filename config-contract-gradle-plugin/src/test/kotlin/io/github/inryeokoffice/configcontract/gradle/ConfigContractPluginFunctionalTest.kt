@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.ConfigurationProperties
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -153,6 +155,33 @@ class ConfigContractPluginFunctionalTest {
     }
 
     @Test
+    fun `fails explicitly when application bytecode is newer than the Gradle JVM`() {
+        // Mirrors a Java 25 toolchain under a Java 21 Gradle daemon (issue #70) without needing a newer JDK.
+        writeProject(extension = """dotenvExampleFiles.from(".env.example")""")
+        write(".env.example", "APP_API_KEY=example\n")
+        val newerMajorVersion = Runtime.version().feature() + 45
+        projectDir.resolve("newer-classes/com/example/NewerBytecode.class").apply {
+            parentFile.mkdirs()
+            writeBytes(emptyClassFile("com/example/NewerBytecode", newerMajorVersion))
+        }
+        projectDir.resolve("build.gradle.kts").appendText(
+            """
+
+            tasks.named<io.github.inryeokoffice.configcontract.gradle.ConfigContractCheckTask>("configContractCheck") {
+                applicationClassesDirs.setFrom(file("newer-classes"))
+            }
+            """.trimIndent(),
+        )
+
+        val result = runAndFail("configContractCheck")
+
+        assertEquals(TaskOutcome.FAILED, result.task(":configContractCheck")?.outcome)
+        assertTrue(result.output.contains("Application classes could not be loaded:"), result.output)
+        assertTrue(result.output.contains("com.example.NewerBytecode (UnsupportedClassVersionError:"), result.output)
+        assertTrue(result.output.contains("class file version $newerMajorVersion.0"), result.output)
+    }
+
+    @Test
     fun `is compatible with the configuration cache`() {
         writeProject(extension = """dotenvExampleFiles.from(".env.example")""")
         write(".env.example", "APP_API_KEY=example\nAPP_REGION=eu\n")
@@ -217,6 +246,33 @@ class ConfigContractPluginFunctionalTest {
         file.parentFile.mkdirs()
         file.writeText(content)
     }
+
+    /** A minimal class file declaring only [internalName] extending `java/lang/Object`, with no members. */
+    private fun emptyClassFile(
+        internalName: String,
+        majorVersion: Int,
+    ): ByteArray =
+        ByteArrayOutputStream()
+            .also { bytes ->
+                DataOutputStream(bytes).use { out ->
+                    out.writeInt(0xCAFEBABE.toInt())
+                    out.writeShort(0)
+                    out.writeShort(majorVersion)
+                    out.writeShort(5)
+                    out.writeByte(1)
+                    out.writeUTF(internalName)
+                    out.writeByte(7)
+                    out.writeShort(1)
+                    out.writeByte(1)
+                    out.writeUTF("java/lang/Object")
+                    out.writeByte(7)
+                    out.writeShort(3)
+                    out.writeShort(0x0021)
+                    out.writeShort(2)
+                    out.writeShort(4)
+                    repeat(4) { out.writeShort(0) }
+                }
+            }.toByteArray()
 
     private fun runner(vararg arguments: String): GradleRunner =
         GradleRunner

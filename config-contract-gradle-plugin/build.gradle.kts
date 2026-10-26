@@ -116,6 +116,11 @@ tasks.test {
             .get(),
     )
     systemProperty("configContract.kotlinVersion", libs.versions.kotlin.get())
+    systemProperty(
+        "configContract.compatibilityProbeSpringBootVersion",
+        libs.versions.compatibility.probe.spring.boot
+            .get(),
+    )
     dependsOn(kotlinSample.classesTaskName)
     inputs
         .dir(samples)

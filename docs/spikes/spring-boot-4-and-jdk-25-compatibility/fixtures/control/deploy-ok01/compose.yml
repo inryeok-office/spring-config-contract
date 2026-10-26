@@ -1,0 +1,6 @@
+services:
+  app:
+    environment:
+      APP_PAYMENT_MERCHANT_ID: m-1
+      GREETING_LOCALE: de
+      DATABASE_URL: jdbc:postgresql://db/app
