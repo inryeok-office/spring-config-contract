@@ -1,0 +1,15 @@
+services:
+  app:
+    environment:
+      - SHARED_KEY=1
+      - APP_ONLY=2
+  database:
+    environment:
+      SHARED_KEY: 3
+      DATABASE_ONLY: 4
+  worker:
+    environment:
+      - SHARED_KEY=5
+      - WORKER_ONLY=6
+  empty:
+    image: example

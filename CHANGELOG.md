@@ -4,6 +4,7 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Added the opt-in `configContract { composeServices }` setting and `ComposeAdapter.selecting(services, sources)` to read only named Docker Compose services instead of every service; the default of reading all services is unchanged. See the [usage guide](docs/usage-guide.md#selecting-docker-compose-services) ([#71](https://github.com/inryeok-office/spring-config-contract/issues/71)).
 - Spring discovery now reads placeholders in `@Scheduled` `cron`, `zone`, `fixedDelayString`, `fixedRateString`, and `initialDelayString` attributes with the same rules as `@Value` ([#80](https://github.com/inryeok-office/spring-config-contract/issues/80)).
 - Recorded the Spring Boot 4 and JDK 25 compatibility investigation with its manual consumer fixtures, and added offline regression tests for a Spring Boot 4 consumer and for application bytecode newer than the Gradle JVM; support claims are unchanged ([#70](https://github.com/inryeok-office/spring-config-contract/issues/70)).
 
