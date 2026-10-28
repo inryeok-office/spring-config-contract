@@ -4,6 +4,7 @@ import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.abort
 import org.junit.jupiter.api.Test
@@ -193,15 +194,134 @@ class ConfigContractPluginFunctionalTest {
         assertEquals(TaskOutcome.SUCCESS, reused.task(":configContractCheck")?.outcome)
     }
 
+    @Test
+    fun `reads every Compose service when no services are selected`() {
+        writeProject(extension = """composeFiles.from("compose.yml")""")
+        write("compose.yml", APP_AND_DATABASE_COMPOSE)
+
+        val result = runAndFail("configContractCheck")
+
+        assertEquals(
+            listOf(
+                "Configuration contract check failed: 1 finding (1 unused)",
+                "UNUSED  DATABASE_PASSWORD (compose.yml:7)",
+            ),
+            reportLines(result.output),
+            result.output,
+        )
+    }
+
+    @Test
+    fun `reads only the selected Compose services`() {
+        writeProject(
+            extension =
+                """
+                composeFiles.from("compose.yml")
+                composeServices.set(setOf("app"))
+                """,
+        )
+        write("compose.yml", APP_AND_DATABASE_COMPOSE)
+
+        val result = run("configContractCheck")
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":configContractCheck")?.outcome)
+        assertTrue(result.output.contains("Configuration contract check passed: no findings"), result.output)
+    }
+
+    @Test
+    fun `reuses the configuration cache with a service selection and re-evaluates a changed selection`() {
+        writeProject(
+            extension =
+                """
+                composeFiles.from("compose.yml")
+                composeServices = setOf("app")
+                """,
+        )
+        write("compose.yml", APP_AND_DATABASE_COMPOSE)
+
+        run("configContractCheck", "--configuration-cache")
+        // The unselected service gains a key; the cached selection must still exclude it.
+        write("compose.yml", APP_AND_DATABASE_COMPOSE + "      DATABASE_USER: example\n")
+        val reused = run("configContractCheck", "--configuration-cache")
+
+        assertTrue(reused.output.contains("Reusing configuration cache."), reused.output)
+        assertEquals(TaskOutcome.SUCCESS, reused.task(":configContractCheck")?.outcome)
+        assertTrue(reused.output.contains("Configuration contract check passed: no findings"), reused.output)
+
+        val buildFile = projectDir.resolve("build.gradle.kts")
+        buildFile.writeText(buildFile.readText().replace("setOf(\"app\")", "setOf(\"database\")"))
+        val changed = runAndFail("configContractCheck", "--configuration-cache")
+
+        assertFalse(changed.output.contains("Reusing configuration cache."), changed.output)
+        assertEquals(
+            listOf(
+                "Configuration contract check failed: 3 findings (1 missing, 2 unused)",
+                "UNUSED  DATABASE_PASSWORD (compose.yml:7)",
+                "UNUSED  DATABASE_USER (compose.yml:8)",
+                "MISSING app.api-key (com.example.ApiClient.apiKey)",
+            ),
+            reportLines(changed.output),
+            changed.output,
+        )
+    }
+
+    @Test
+    fun `fails with an actionable message for an unknown Compose service`() {
+        writeProject(
+            extension =
+                """
+                composeFiles.from("compose.yml")
+                composeServices.set(listOf("app", "ap"))
+                """,
+        )
+        write("compose.yml", APP_AND_DATABASE_COMPOSE)
+
+        val result = runAndFail("configContractCheck")
+
+        assertEquals(TaskOutcome.FAILED, result.task(":configContractCheck")?.outcome)
+        assertTrue(
+            result.output.contains(
+                "Invalid composeServices: Selected Docker Compose services are not declared in any configured " +
+                    "Docker Compose file: 'ap' (declared services: 'app', 'database')",
+            ),
+            result.output,
+        )
+    }
+
+    @Test
+    fun `fails when Compose services are selected without Compose files`() {
+        writeProject(extension = """composeServices.set(setOf("app"))""")
+
+        val result = runAndFail("configContractCheck")
+
+        assertEquals(TaskOutcome.FAILED, result.task(":configContractCheck")?.outcome)
+        assertTrue(
+            result.output.contains(
+                "Invalid composeServices: Docker Compose services are selected ('app') but no Docker Compose files are configured",
+            ),
+            result.output,
+        )
+    }
+
+    @Test
+    fun `selects Compose services from the Groovy DSL`() {
+        writeGroovyProject(
+            extension =
+                """
+                composeFiles.from('compose.yml')
+                composeServices = ['app']
+                """,
+        )
+        write("compose.yml", APP_AND_DATABASE_COMPOSE)
+
+        val result = run("configContractCheck", "--configuration-cache")
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":configContractCheck")?.outcome)
+        assertTrue(result.output.contains("Configuration contract check passed: no findings"), result.output)
+    }
+
     private fun writeProject(extension: String) {
-        val springJars =
-            listOf(ConfigurationProperties::class.java, Value::class.java)
-                .map {
-                    File(
-                        it.protectionDomain.codeSource.location
-                            .toURI(),
-                    ).invariantSeparatorsPath
-                }.joinToString { "\"$it\"" }
+        val springJars = springJarFiles().joinToString { "\"${it.invariantSeparatorsPath}\"" }
         write("settings.gradle.kts", "rootProject.name = \"fixture\"\n")
         write(
             "build.gradle.kts",
@@ -220,6 +340,40 @@ class ConfigContractPluginFunctionalTest {
             }
             """.trimIndent(),
         )
+        writeApplicationSource()
+    }
+
+    private fun writeGroovyProject(extension: String) {
+        write("settings.gradle", "rootProject.name = 'fixture'\n")
+        write(
+            "build.gradle",
+            """
+            plugins {
+                id 'java'
+                id 'io.github.inryeok-office.config-contract'
+            }
+
+            dependencies {
+                implementation files(${groovyPathList(springJarFiles())})
+            }
+
+            configContract {
+            ${extension.trimIndent()}
+            }
+            """.trimIndent(),
+        )
+        writeApplicationSource()
+    }
+
+    private fun springJarFiles(): List<File> =
+        listOf(ConfigurationProperties::class.java, Value::class.java).map {
+            File(
+                it.protectionDomain.codeSource.location
+                    .toURI(),
+            )
+        }
+
+    private fun writeApplicationSource() {
         write(
             "src/main/java/com/example/ApiClient.java",
             """
@@ -293,4 +447,18 @@ class ConfigContractPluginFunctionalTest {
             .dropWhile { !it.startsWith("Configuration contract check") }
             .takeWhile { it.isNotEmpty() && !it.startsWith("*") }
             .distinct()
+
+    private companion object {
+        /** An application service and an infrastructure service; `DATABASE_PASSWORD` is on line 7. */
+        val APP_AND_DATABASE_COMPOSE =
+            """
+            services:
+              app:
+                environment:
+                  APP_API_KEY: example
+              database:
+                environment:
+                  DATABASE_PASSWORD: example
+            """.trimIndent() + "\n"
+    }
 }

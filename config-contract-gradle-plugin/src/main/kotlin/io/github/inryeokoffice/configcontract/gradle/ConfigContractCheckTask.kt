@@ -13,6 +13,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
@@ -57,6 +58,10 @@ abstract class ConfigContractCheckTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val composeFiles: ConfigurableFileCollection
 
+    /** Docker Compose services to read from [composeFiles]; empty reads every service. */
+    @get:Input
+    abstract val composeServices: SetProperty<String>
+
     /** Directory that reported source names are relative to; files must be inside it. */
     @get:Internal
     abstract val baseDirectory: DirectoryProperty
@@ -68,9 +73,10 @@ abstract class ConfigContractCheckTask : DefaultTask() {
             applicationConfigurationFiles.files
                 .map { file -> readInput(base, file).let { (name, content) -> ApplicationConfigurationSource(name, content) } }
                 .sortedBy { it.name }
-        val deploymentInputs =
-            deploymentInputs(base, dotenvExampleFiles, DotenvExampleAdapter) +
-                deploymentInputs(base, composeFiles, ComposeAdapter)
+        val dotenvInputs = deploymentSources(base, dotenvExampleFiles).map { DeploymentContractInput(DotenvExampleAdapter, it) }
+        val composeSources = deploymentSources(base, composeFiles)
+        val composeAdapter = composeAdapter(composeSources)
+        val deploymentInputs = dotenvInputs + composeSources.map { DeploymentContractInput(composeAdapter, it) }
 
         val result =
             withApplicationClasses { classes ->
@@ -84,7 +90,7 @@ abstract class ConfigContractCheckTask : DefaultTask() {
                 } catch (exception: SpringDiscoveryException) {
                     throw GradleException(exception.message!!, exception)
                 } catch (exception: DeploymentInputException) {
-                    throw GradleException("Deployment input could not be read: ${exception.message}", exception)
+                    throw deploymentInputFailure(exception)
                 }
             }
 
@@ -95,15 +101,27 @@ abstract class ConfigContractCheckTask : DefaultTask() {
         logger.lifecycle(report)
     }
 
-    private fun deploymentInputs(
+    private fun deploymentSources(
         base: File,
         files: ConfigurableFileCollection,
-        adapter: DeploymentInputAdapter,
-    ): List<DeploymentContractInput> =
+    ): List<DeploymentSource> =
         files.files.map { file ->
             val (name, content) = readInput(base, file)
-            DeploymentContractInput(adapter, DeploymentSource(name, content))
+            DeploymentSource(name, content)
         }
+
+    /** Validates [composeServices] against [sources]; an invalid selection is a configuration error, not a crash. */
+    private fun composeAdapter(sources: List<DeploymentSource>): DeploymentInputAdapter =
+        try {
+            ComposeAdapter.selecting(composeServices.get(), sources)
+        } catch (exception: IllegalArgumentException) {
+            throw GradleException("Invalid composeServices: ${exception.message}", exception)
+        } catch (exception: DeploymentInputException) {
+            throw deploymentInputFailure(exception)
+        }
+
+    private fun deploymentInputFailure(exception: DeploymentInputException): GradleException =
+        GradleException("Deployment input could not be read: ${exception.message}", exception)
 
     private fun <T> withApplicationClasses(action: (List<Class<*>>) -> T): T {
         val urls = (applicationClassesDirs.files + applicationClasspath.files).map { it.toURI().toURL() }

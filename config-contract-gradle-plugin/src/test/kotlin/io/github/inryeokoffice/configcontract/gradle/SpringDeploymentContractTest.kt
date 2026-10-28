@@ -107,6 +107,69 @@ class SpringDeploymentContractTest {
         )
     }
 
+    @Test
+    fun `selecting the application service removes unused keys of infrastructure services`() {
+        val source =
+            composeSource(
+                """
+                services:
+                  app:
+                    environment:
+                      APP_REQUIRED: value
+                  database:
+                    environment:
+                      DATABASE_PASSWORD: example
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                ContractFinding(
+                    ContractFinding.Kind.UNUSED,
+                    ConfigurationKey.of("DATABASE_PASSWORD"),
+                    SourceMetadata("compose.yaml:7"),
+                ),
+            ),
+            evaluate(DeploymentContractInput(ComposeAdapter, source), Required::class.java).findings,
+        )
+        assertEquals(
+            emptyList<ContractFinding>(),
+            evaluate(DeploymentContractInput(ComposeAdapter.selecting(listOf("app"), listOf(source)), source), Required::class.java)
+                .findings,
+        )
+    }
+
+    @Test
+    fun `a key provided only by an unselected service does not satisfy an application requirement`() {
+        val source =
+            composeSource(
+                """
+                services:
+                  app:
+                    image: example/app
+                  database:
+                    environment:
+                      APP_REQUIRED: value
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            emptyList<ContractFinding>(),
+            evaluate(DeploymentContractInput(ComposeAdapter, source), Required::class.java).findings,
+        )
+        assertEquals(
+            listOf(
+                ContractFinding(
+                    ContractFinding.Kind.MISSING,
+                    ConfigurationKey.of("app.required"),
+                    SourceMetadata("${Required::class.java.name}.required"),
+                ),
+            ),
+            evaluate(DeploymentContractInput(ComposeAdapter.selecting(listOf("app"), listOf(source)), source), Required::class.java)
+                .findings,
+        )
+    }
+
     private fun evaluate(
         deploymentInput: DeploymentContractInput,
         type: Class<*> = Requirements::class.java,
@@ -123,8 +186,9 @@ class SpringDeploymentContractTest {
         name: String = "config/.env.example",
     ): DeploymentContractInput = DeploymentContractInput(DotenvExampleAdapter, DeploymentSource(name, content))
 
-    private fun compose(content: String): DeploymentContractInput =
-        DeploymentContractInput(ComposeAdapter, DeploymentSource("compose.yaml", "$content\n"))
+    private fun compose(content: String): DeploymentContractInput = DeploymentContractInput(ComposeAdapter, composeSource(content))
+
+    private fun composeSource(content: String): DeploymentSource = DeploymentSource("compose.yaml", "$content\n")
 
     private fun requiredSource() = SourceMetadata("${Requirements::class.java.name}.required")
 

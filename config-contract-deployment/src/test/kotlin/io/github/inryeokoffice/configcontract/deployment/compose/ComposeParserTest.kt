@@ -1,6 +1,7 @@
 package io.github.inryeokoffice.configcontract.deployment.compose
 
 import io.github.inryeokoffice.configcontract.deployment.DeploymentInputException
+import io.github.inryeokoffice.configcontract.deployment.InputProblem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
@@ -281,6 +282,166 @@ class ComposeParserTest {
         assertEquals(listOf(2, 4), exception.problems.map { it.line })
         assertEquals(List(2) { "Mapping key must be a string" }, exception.problems.map { it.message })
     }
+
+    @Test
+    fun `selecting a service excludes keys that only other services provide`() {
+        assertEquals(
+            listOf(ComposeEntry("SHARED_KEY", 4), ComposeEntry("APP_ONLY", 5)),
+            parse("selection.compose.yml", setOf("app")),
+        )
+    }
+
+    @Test
+    fun `selecting several services reads their union in document order`() {
+        val expected =
+            listOf(
+                ComposeEntry("SHARED_KEY", 4),
+                ComposeEntry("APP_ONLY", 5),
+                ComposeEntry("SHARED_KEY", 12),
+                ComposeEntry("WORKER_ONLY", 13),
+            )
+
+        assertEquals(expected, parse("selection.compose.yml", setOf("worker", "app")))
+    }
+
+    @Test
+    fun `a selected service without an environment contributes nothing`() {
+        assertEquals(emptyList<ComposeEntry>(), parse("selection.compose.yml", setOf("empty")))
+        assertEquals(emptyList<ComposeEntry>(), parse("null-values.compose.yml", setOf("empty-env", "explicit-null-env", "null-body")))
+    }
+
+    @Test
+    fun `a selected name the document does not declare is not a parser problem`() {
+        assertEquals(emptyList<ComposeEntry>(), parse("selection.compose.yml", setOf("elsewhere")))
+    }
+
+    @Test
+    fun `unsupported content in unselected services is not interpreted`() {
+        assertEquals(listOf(ComposeEntry("APP_KEY", 4)), parse("selection-unsupported.compose.yml", setOf("app")))
+    }
+
+    @Test
+    fun `unsupported content in a selected service is still reported`() {
+        val database =
+            assertThrows(DeploymentInputException::class.java) {
+                parse("selection-unsupported.compose.yml", setOf("app", "database"))
+            }
+        assertEquals(listOf(6, 7, 9, 12), database.problems.map { it.line })
+        assertEquals(
+            listOf(
+                "Docker Compose construct 'env_file' is not supported",
+                "Docker Compose construct 'extends' is not supported",
+                "Docker Compose construct '<<' is not supported",
+                "Duplicate key 'DB_KEY' (first defined at line 11)",
+            ),
+            database.problems.map { it.message },
+        )
+
+        val worker =
+            assertThrows(DeploymentInputException::class.java) {
+                parse("selection-unsupported.compose.yml", setOf("worker"))
+            }
+        assertEquals(listOf(InputProblem(14, "'environment' must be a list or a mapping")), worker.problems)
+
+        val broken =
+            assertThrows(DeploymentInputException::class.java) {
+                parse("selection-unsupported.compose.yml", setOf("broken"))
+            }
+        assertEquals(listOf(InputProblem(15, "Service 'broken' must be a mapping")), broken.problems)
+    }
+
+    @Test
+    fun `global problems are reported with selected-service problems while unselected services are skipped`() {
+        val exception =
+            assertThrows(DeploymentInputException::class.java) {
+                parse("malformed.compose.yml", setOf("worker"))
+            }
+
+        assertEquals(listOf(1, 18, 19, 20), exception.problems.map { it.line })
+        assertEquals(
+            listOf(
+                "Docker Compose construct 'include' is not supported",
+                "Duplicate key 'FOO' (first defined at line 17)",
+                "Environment list item must be a string",
+                "Service name '\$bad' must not contain interpolation",
+            ),
+            exception.problems.map { it.message },
+        )
+    }
+
+    @Test
+    fun `invalid syntax and document structure still fail when selecting`() {
+        mapOf(
+            "invalid-syntax.compose.yml" to "Invalid YAML syntax",
+            "bad-root.compose.yml" to "Root must be a YAML mapping",
+            "multi-document.compose.yml" to "Multiple YAML documents are not supported",
+        ).forEach { (fixtureName, message) ->
+            val exception =
+                assertThrows(DeploymentInputException::class.java) { parse(fixtureName, setOf("web")) }
+            assertEquals(listOf(message), exception.problems.map { it.message }, fixtureName)
+        }
+        mapOf(
+            "version: \"3\"\n" to "Missing 'services' mapping",
+            "services: [app]\n" to "'services' must be a mapping",
+        ).forEach { (content, message) ->
+            val exception =
+                assertThrows(DeploymentInputException::class.java) {
+                    ComposeParser.parse("structure.compose.yml", content, setOf("app"))
+                }
+            assertEquals(listOf(message), exception.problems.map { it.message }, content)
+        }
+    }
+
+    @Test
+    fun `duplicate and non-string service names still fail when selecting another service`() {
+        val content = "services:\n  app:\n    image: a\n  db:\n    image: b\n  db:\n    image: c\n  true:\n    image: d\n"
+
+        val exception =
+            assertThrows(DeploymentInputException::class.java) {
+                ComposeParser.parse("names.compose.yml", content, setOf("app"))
+            }
+
+        assertEquals(
+            listOf(
+                InputProblem(6, "Duplicate key 'db' (first defined at line 4)"),
+                InputProblem(8, "Mapping key must be a string"),
+            ),
+            exception.problems,
+        )
+    }
+
+    @Test
+    fun `a selected alias keeps the anchor's definition line even when the anchor's service is unselected`() {
+        assertEquals(listOf(ComposeEntry("SHARED_KEY", 4)), parse("alias.compose.yml", setOf("api")))
+    }
+
+    @Test
+    fun `service names are returned in document order`() {
+        assertEquals(listOf("app", "database", "worker", "empty"), serviceNames("selection.compose.yml").toList())
+        assertEquals(listOf("app", "database", "worker", "broken"), serviceNames("selection-unsupported.compose.yml").toList())
+        assertEquals(emptySet<String>(), ComposeParser.serviceNames("empty.compose.yml", ""))
+    }
+
+    @Test
+    fun `service names apply global validation only`() {
+        val exception =
+            assertThrows(DeploymentInputException::class.java) { serviceNames("malformed.compose.yml") }
+
+        assertEquals(listOf(1, 20), exception.problems.map { it.line })
+        assertEquals(
+            listOf("Multiple YAML documents are not supported"),
+            assertThrows(DeploymentInputException::class.java) { serviceNames("multi-document.compose.yml") }
+                .problems
+                .map { it.message },
+        )
+    }
+
+    private fun parse(
+        fixtureName: String,
+        services: Set<String>,
+    ): List<ComposeEntry> = ComposeParser.parse(fixtureName, fixture(fixtureName), services)
+
+    private fun serviceNames(fixtureName: String): Set<String> = ComposeParser.serviceNames(fixtureName, fixture(fixtureName))
 
     private fun parse(fixtureName: String): List<ComposeEntry> = ComposeParser.parse(fixtureName, fixture(fixtureName))
 

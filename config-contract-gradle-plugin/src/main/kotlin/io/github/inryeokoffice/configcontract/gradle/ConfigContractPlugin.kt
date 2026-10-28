@@ -16,6 +16,7 @@ class ConfigContractPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension = project.extensions.create("configContract", ConfigContractExtension::class.java)
         extension.activeProfiles.convention(emptyList())
+        extension.composeServices.convention(emptySet())
 
         val check =
             project.tasks.register("configContractCheck", ConfigContractCheckTask::class.java) { task ->
@@ -24,6 +25,7 @@ class ConfigContractPlugin : Plugin<Project> {
                 task.activeProfiles.set(extension.activeProfiles)
                 task.dotenvExampleFiles.from(extension.dotenvExampleFiles)
                 task.composeFiles.from(extension.composeFiles)
+                task.composeServices.set(extension.composeServices)
                 task.applicationConfigurationFiles.from(extension.applicationConfigurationFiles)
                 task.baseDirectory.set(project.rootProject.layout.projectDirectory)
             }

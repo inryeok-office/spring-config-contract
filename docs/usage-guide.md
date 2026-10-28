@@ -173,6 +173,7 @@ The same report appears in the [example](#end-to-end-example) below.
 | `activeProfiles` | Spring profiles to analyze, in `spring.profiles.active` order; later profiles take precedence. Empty analyzes the `default` profile. Profile names may contain letters, digits, `.`, `_`, and `-`. |
 | `dotenvExampleFiles` | `.env.example` files that provide configuration. |
 | `composeFiles` | Docker Compose files whose `services.<name>.environment` entries provide configuration. |
+| `composeServices` | Optional set of Docker Compose service names to read from `composeFiles`. Empty or unset reads every service. See [Selecting Docker Compose services](#selecting-docker-compose-services). |
 | `applicationConfigurationFiles` | Application configuration files to analyze. Defaults to the top-level `application.*` and `application-*.*` files with a `properties`, `yml`, or `yaml` extension in the `main` resource directories. |
 
 Deployment and application configuration files must resolve inside the root project. Reported paths are relative to the root project, so output does not contain machine-specific paths. Once the `java` plugin is applied, the task analyzes the compiled classes of the `main` source set.
@@ -199,7 +200,46 @@ Deployment keys are matched to requirement keys with Spring Boot's environment-v
 | `.env.example` | One provided key per `KEY=value` line. Comments, blank lines, an `export` prefix, and single- or double-quoted values are accepted. |
 | Docker Compose `services.<name>.environment` | One provided key per entry, in list form (`- KEY=value`, `- KEY=`, `- KEY`) or map form (`KEY: value`, `KEY:`). A key without a value still counts as provided. |
 
-Only key names and their line numbers are read from deployment files. Values are never exposed, and `$VAR` or `${VAR}` in a value is not expanded. All other Compose fields are ignored.
+Only key names and their line numbers are read from deployment files. Values are never exposed, and `$VAR` or `${VAR}` in a value is not expanded. All other Compose fields are ignored. By default every Compose service is read; to read only the services that configure your application, see the next section.
+
+### Selecting Docker Compose services
+
+By default, the `environment` of every service in `composeFiles` is treated as provided to the application, so variables of other containers can be reported as `UNUSED`, and a key that only another container provides can satisfy an application requirement and hide a `MISSING` finding. `composeServices` is an opt-in way to read only the services you name. It is not part of the published v0.1.0 plugin; it is available in builds that include this change.
+
+Kotlin DSL (`build.gradle.kts`):
+
+```kotlin
+configContract {
+    composeFiles.from("deploy/compose.yml")
+    composeServices.set(setOf("app"))   // or: composeServices = setOf("app")
+}
+```
+
+Groovy DSL (`build.gradle`):
+
+```groovy
+configContract {
+    composeFiles.from('deploy/compose.yml')
+    composeServices = ['app']
+}
+```
+
+`composeServices` is a Gradle `SetProperty<String>`.
+
+Behavior:
+
+- An empty or unset selection reads every service, exactly as in v0.1.0.
+- Names are matched exactly. Order and duplicates do not matter.
+- Several names read the union of their environment keys. A union does not prove that each selected service is independently complete.
+- Each file in `composeFiles` is parsed independently; files are not merged as Compose overlays. A name is valid if at least one configured file declares it, and a name declared in several files contributes from every file that declares it, in file and document order.
+- A selected service without an `environment` contributes nothing and is not an error.
+- The application service is never detected automatically. You must name it.
+
+The build fails with a message starting `Invalid composeServices:` when a name is blank, a name contains interpolation (`$`), a name is not declared in any configured Compose file, or services are selected but `composeFiles` is empty. The message lists the offending names.
+
+Validation scope: file-wide problems still apply to every configured Compose file, selected or not. These are invalid YAML, multiple YAML documents, a non-mapping root, a missing or non-mapping `services`, a top-level `include`, and invalid, duplicate, or interpolated service names. Constructs inside a service body are interpreted only for selected services: a non-mapping body, the `environment` shape, `env_file`, `extends`, the merge key `<<`, and duplicate environment keys. An unselected service may therefore use them without failing the build. `env_file` on a selected service remains unsupported and is rejected.
+
+The same selection is available programmatically as `ComposeAdapter.selecting(services, sources)` in `config-contract-deployment`, which throws `IllegalArgumentException` for selector errors.
 
 ## Findings
 
@@ -302,8 +342,8 @@ General:
 
 Deployment files:
 
-- Every Compose service's `environment` is treated as provided to the application. Variables of other services (for example a database container) and generic ones such as `TZ` or `SPRING_PROFILES_ACTIVE` can therefore be reported as `UNUSED`. Because `UNUSED` fails the build and there is no allowlist, this can fail builds for multi-service Compose files.
-- Docker Compose input is limited to `services.<name>.environment`. The constructs `env_file`, `extends`, a top-level `include`, and the YAML merge key `<<` are rejected, as are multiple YAML documents, a duplicate key, a nested map or list value, and `$` interpolation in an environment key or service name.
+- By default, every Compose service's `environment` is treated as provided to the application. Variables of other services (for example a database container) and generic ones such as `TZ` or `SPRING_PROFILES_ACTIVE` can therefore be reported as `UNUSED`. Because `UNUSED` fails the build and there is no allowlist, this can fail builds for multi-service Compose files. Opt in to [explicit service selection](#selecting-docker-compose-services) with `composeServices` to read only the services you name; the application service is never auto-detected.
+- Docker Compose input is limited to `services.<name>.environment`. The constructs `env_file`, `extends`, a top-level `include`, and the YAML merge key `<<` are rejected, as are multiple YAML documents, a duplicate key, a nested map or list value, and `$` interpolation in an environment key or service name. With `composeServices`, constructs inside a service body are rejected only for selected services; see [Selecting Docker Compose services](#selecting-docker-compose-services).
 - `.env.example` input is rejected for a line without `=`, an invalid key (keys must match `[A-Za-z_][A-Za-z0-9_]*`), a duplicate key, an unterminated quote, an unsupported escape sequence in a double-quoted value, and text after a closing quote. A quoted value must close on the same line.
 - Only `.env.example` and Docker Compose are read. Other deployment formats are not supported.
 

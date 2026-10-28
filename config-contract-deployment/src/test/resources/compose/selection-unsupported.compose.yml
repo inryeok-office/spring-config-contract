@@ -1,0 +1,15 @@
+services:
+  app:
+    environment:
+      - APP_KEY=1
+  database:
+    env_file: .env
+    extends:
+      service: base
+    <<: {}
+    environment:
+      DB_KEY: 1
+      DB_KEY: 2
+  worker:
+    environment: 5
+  broken: disabled

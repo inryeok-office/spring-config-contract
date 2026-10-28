@@ -35,12 +35,65 @@ internal object ComposeParser {
     private val BOOL_LITERALS = setOf("true", "True", "TRUE", "false", "False", "FALSE")
     private val UNSUPPORTED_SERVICE_KEYS = listOf("env_file", "extends")
 
-    /** @throws DeploymentInputException if [content] contains any problem, reported in line order. */
+    /**
+     * Parses every service's environment, or only the services named in [services] when it is
+     * not null. Global validation (YAML syntax, document count, root and `services` structure,
+     * top-level `include`, and service-name keys) always applies to the whole document; an
+     * unselected service is not interpreted at all, so it contributes neither entries nor
+     * service-specific problems. Names in [services] that the document does not declare are not
+     * an error here; callers validate the selection against [serviceNames].
+     *
+     * @throws DeploymentInputException if [content] contains any problem, reported in line order.
+     */
     fun parse(
         sourceName: String,
         content: String,
+        services: Set<String>? = null,
     ): List<ComposeEntry> {
         val problems = mutableListOf<InputProblem>()
+        val serviceTuples = serviceTuples(sourceName, content, problems) ?: return emptyList()
+
+        val entries = mutableListOf<ComposeEntry>()
+        for ((serviceName, serviceTuple) in serviceTuples) {
+            if (services != null && serviceName !in services) continue
+            entries += serviceEntries(serviceName, serviceTuple, problems)
+        }
+
+        if (problems.isNotEmpty()) {
+            throw DeploymentInputException(sourceName, problems.sortedBy { it.line })
+        }
+        return entries
+    }
+
+    /**
+     * Returns the service names declared in [content], in document order, after the same global
+     * validation [parse] applies. Service bodies are not interpreted.
+     *
+     * @throws DeploymentInputException if [content] contains any global problem, reported in line order.
+     */
+    fun serviceNames(
+        sourceName: String,
+        content: String,
+    ): Set<String> {
+        val problems = mutableListOf<InputProblem>()
+        val serviceTuples = serviceTuples(sourceName, content, problems) ?: return emptySet()
+        if (problems.isNotEmpty()) {
+            throw DeploymentInputException(sourceName, problems.sortedBy { it.line })
+        }
+        return serviceTuples.keys
+    }
+
+    /**
+     * Applies global validation and returns the valid service entries in document order, or null
+     * for empty content. Structural problems that leave no `services` mapping to read throw
+     * immediately; the remaining global problems are added to [problems], and the offending
+     * service names are left out of the result.
+     */
+    private fun serviceTuples(
+        sourceName: String,
+        content: String,
+        problems: MutableList<InputProblem>,
+    ): LinkedHashMap<String, NodeTuple>? {
         val documents =
             try {
                 composeAll(sourceName, content)
@@ -51,7 +104,7 @@ internal object ComposeParser {
             }
 
         if (documents.isEmpty()) {
-            return emptyList()
+            return null
         }
         if (documents.size > 1) {
             problems += InputProblem(documents[1].line(), "Multiple YAML documents are not supported")
@@ -80,7 +133,7 @@ internal object ComposeParser {
             throw DeploymentInputException(sourceName, problems)
         }
 
-        val entries = mutableListOf<ComposeEntry>()
+        val result = LinkedHashMap<String, NodeTuple>()
         for ((serviceName, serviceTuple) in mappingEntries(servicesNode, problems)) {
             if (serviceName.contains('$')) {
                 problems +=
@@ -90,31 +143,35 @@ internal object ComposeParser {
                     )
                 continue
             }
+            result[serviceName] = serviceTuple
+        }
+        return result
+    }
 
-            val serviceNode = serviceTuple.valueNode
-            if (serviceNode !is MappingNode) {
-                // Only a null placeholder body (`web:` or `web: ~`) means "no configuration".
-                if (!serviceNode.isNullScalar()) {
-                    problems += InputProblem(serviceNode.line(), "Service '$serviceName' must be a mapping")
-                }
-                continue
+    /** Interprets one service's body: its own keys, unsupported constructs, and environment. */
+    private fun serviceEntries(
+        serviceName: String,
+        serviceTuple: NodeTuple,
+        problems: MutableList<InputProblem>,
+    ): List<ComposeEntry> {
+        val serviceNode = serviceTuple.valueNode
+        if (serviceNode !is MappingNode) {
+            // Only a null placeholder body (`web:` or `web: ~`) means "no configuration".
+            if (!serviceNode.isNullScalar()) {
+                problems += InputProblem(serviceNode.line(), "Service '$serviceName' must be a mapping")
             }
-
-            val serviceEntries = mappingEntries(serviceNode, problems)
-            for (unsupportedKey in UNSUPPORTED_SERVICE_KEYS) {
-                serviceEntries[unsupportedKey]?.let { tuple ->
-                    problems += InputProblem(tuple.keyNode.line(), unsupportedConstructMessage(unsupportedKey))
-                }
-            }
-
-            val environmentTuple = serviceEntries[ENVIRONMENT_KEY] ?: continue
-            entries += environmentEntries(environmentTuple.valueNode, problems)
+            return emptyList()
         }
 
-        if (problems.isNotEmpty()) {
-            throw DeploymentInputException(sourceName, problems.sortedBy { it.line })
+        val serviceEntries = mappingEntries(serviceNode, problems)
+        for (unsupportedKey in UNSUPPORTED_SERVICE_KEYS) {
+            serviceEntries[unsupportedKey]?.let { tuple ->
+                problems += InputProblem(tuple.keyNode.line(), unsupportedConstructMessage(unsupportedKey))
+            }
         }
-        return entries
+
+        val environmentTuple = serviceEntries[ENVIRONMENT_KEY] ?: return emptyList()
+        return environmentEntries(environmentTuple.valueNode, problems)
     }
 
     private fun composeAll(

@@ -59,7 +59,7 @@ configContract {
 }
 ```
 
-These paths are relative to the project root. Each configured file must exist inside that project; application configuration files in `src/main/resources` are discovered by default.
+These paths are relative to the project root. Each configured file must exist inside that project; application configuration files in `src/main/resources` are discovered by default. By default every Compose service is read; builds with the unreleased `composeServices` setting can select services, see [Selecting Docker Compose services](docs/usage-guide.md#selecting-docker-compose-services).
 
 Then run the task explicitly:
 
