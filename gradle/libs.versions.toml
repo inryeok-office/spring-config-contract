@@ -7,7 +7,7 @@ spring-boot = "3.5.16"
 compatibility-probe-spring-boot = "4.1.2"
 snakeyaml = "2.4"
 snakeyaml-engine = "3.2"
-dokka = "2.2.0"
+dokka = "2.3.0"
 gradle-plugin-publish = "2.2.1"
 
 [plugins]
